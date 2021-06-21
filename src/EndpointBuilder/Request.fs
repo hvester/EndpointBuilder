@@ -11,12 +11,13 @@ module Request =
 
     type SourceInfo =
         | QueryParameter of string
+        | PathParameter of string
 
 
     type SourceError = SourceValueMissing of SourceInfo
 
 
-    type Source<'T> = Source of (HttpContext -> Result<'T,  SourceError list>) * SourceInfo list
+    type Source<'T> = Source of (HttpContext -> Result<'T, SourceError list>) * SourceInfo list
 
 
     type RequestHandler<'T> = (HttpContext -> Task<Result<'T, SourceError list>>) * SourceInfo list
@@ -29,6 +30,22 @@ module Request =
             match ctx.TryGetQueryStringValue(parameterName) with
             | None -> Error [ SourceValueMissing sourceInfo ]
             | Some value -> Ok (string value)
+
+        Source(getValue, [ sourceInfo ])
+
+
+    let pathParameter<'T> parameterName =
+        let sourceInfo = PathParameter parameterName
+
+        let convertValue : obj -> obj =
+            if typeof<'T> = typeof<int> then fun v -> System.Int32.Parse(v :?> string) |> box
+            elif typeof<'T> = typeof<string> then box
+            else failwithf "BOOM"
+
+        let getValue (ctx : HttpContext) =
+            match ctx.Request.RouteValues.TryGetValue(parameterName) with
+            | false, _ -> Error [ SourceValueMissing sourceInfo ]
+            | true, value -> Ok (convertValue value :?> 'T)
 
         Source(getValue, [ sourceInfo ])
 

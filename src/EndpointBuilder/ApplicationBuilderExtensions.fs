@@ -32,6 +32,12 @@ module OpenApiGeneration =
                 OpenApiParameter(
                     Required = true,
                     In = Nullable(ParameterLocation.Query),
+                    Name = name)
+            
+            | PathParameter name ->
+                OpenApiParameter(
+                    Required = true,
+                    In = Nullable(ParameterLocation.Path),
                     Name = name))
 
 
