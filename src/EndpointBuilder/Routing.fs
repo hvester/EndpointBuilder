@@ -35,6 +35,17 @@ module Routing =
         Endpoint { endpointHandler with RoutePattern = pattern + endpointHandler.RoutePattern }
 
 
+    let get pattern endpointHandler = GET [ route pattern endpointHandler ]
+    let post pattern endpointHandler = POST [ route pattern endpointHandler ]
+    let put pattern endpointHandler = PUT [ route pattern endpointHandler ]
+    let patch pattern endpointHandler = PATCH [ route pattern endpointHandler ]
+    let delete pattern endpointHandler = DELETE [ route pattern endpointHandler ]
+    let head pattern endpointHandler = HEAD [ route pattern endpointHandler ]
+    let options pattern endpointHandler = OPTIONS [ route pattern endpointHandler ]
+    let trace pattern endpointHandler = TRACE [ route pattern endpointHandler ]
+    let connect pattern endpointHandler = CONNECT [ route pattern endpointHandler ]
+
+
     let subRoute pattern (endpoints : Endpoints list) =
         endpoints
         |> updateEndpointHandlers (fun endpointHandler ->
