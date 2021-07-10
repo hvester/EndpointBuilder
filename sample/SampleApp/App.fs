@@ -18,18 +18,25 @@ module App =
         |> json
 
 
+    let otherNameHandler (source : Source<string>) =
+        handler {
+            let! otherName = source
+            return Task.FromResult({| OtherName = otherName |})
+        }
+        |> json
+
+
     let endpoints = [
         subRoute "/api" [
-            GET [
-                route "/hello" helloHandler
-            ]
+            get "/hello" helloHandler
+            routef "/{otherName:%s}" otherNameHandler
             subRoute "/something" [
-                POST [
-                    route "/test"
+                GET [
+                    route "/{name}/jou"
                         (handler {
                             let! p1 = queryParameter "param1"
-                            and! p2 = queryParameter "param2"
-                            return Task.FromResult({| Response = p1 + p2 |})
+                            and! p2 = pathParameter<int> "name"
+                            return Task.FromResult({| nameNumber = p2 |})
                         }
                         |> json)
                 ]

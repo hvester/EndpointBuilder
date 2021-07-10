@@ -1,5 +1,8 @@
 namespace EndpointBuilder
 
+open Microsoft.FSharp.Reflection
+open System.Text.RegularExpressions
+
 [<AutoOpen>]
 module Routing =
 
@@ -44,6 +47,17 @@ module Routing =
     let options pattern endpointHandler = OPTIONS [ route pattern endpointHandler ]
     let trace pattern endpointHandler = TRACE [ route pattern endpointHandler ]
     let connect pattern endpointHandler = CONNECT [ route pattern endpointHandler ]
+
+
+    let routef (format : PrintfFormat<_,_,_,_, 'T>) (createEndpointHandler : Source<'T> -> EndpointHandler) =
+        let re = Regex("\{([a-zA-Z0-9_]+):([a-z]+:)*(\%s|\%i)\}")
+        let path =
+            format.Value
+                .Replace(":%s", "")
+                .Replace(":%i", ":int")
+        let m = re.Matches(format.Value).[0]
+        let variableName = m.Groups.[1].Value
+        route path (createEndpointHandler (pathParameter variableName))
 
 
     let subRoute pattern (endpoints : Endpoints list) =
