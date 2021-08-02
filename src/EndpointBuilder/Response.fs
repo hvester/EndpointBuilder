@@ -33,7 +33,7 @@ module Response =
         {
             HttpVerb : HttpVerb option
             RoutePattern : string
-            InputSources : SourceInfo list
+            InputSources : HandlerInputSource list
             ResponseType : ResponseType
             RequestDelegate : RequestDelegate
         }

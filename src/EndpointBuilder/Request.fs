@@ -10,91 +10,122 @@ open Giraffe
 module Request =
 
 
-    type SourceInfo =
+    type HandlerInputSource =
         | JsonBody of Type
         | QueryParameter of string
         | PathParameter of string
 
 
-    type SourceError =
+    type HandlerInputError =
+        | InputValueMissing of HandlerInputSource
+        | ValueConversionError of HandlerInputSource * string
         | JsonDeserializationError of Exception
-        | SourceValueMissing of SourceInfo
 
 
-    type Source<'T> = Source of (HttpContext -> Task<Result<'T, SourceError list>>) * SourceInfo list
+    type HandlerInput<'T> =
+        { GetInputValue : HttpContext -> Task<Result<'T, HandlerInputError list>>
+          InputSources : HandlerInputSource list }
 
 
-    type RequestHandler<'T> = (HttpContext -> Task<Result<'T, SourceError list>>) * SourceInfo list
+    type RequestHandler<'T> = (HttpContext -> Task<Result<'T, HandlerInputError list>>) * HandlerInputSource list
 
 
-    let jsonBody<'T> () =
-        let getValue (ctx : HttpContext) =
-            task {
-                try
-                    let! value = ctx.BindJsonAsync<'T>()
-                    return Ok value
-                with ex ->
-                    return Error [ JsonDeserializationError ex ]
-            }
+    let private createConverterResult inputSource str (parseResult : (bool * 'T)) =
+        let converterResult =
+            match parseResult with
+            | false, _ ->
+                let errorMessage = $"""Cannot convert "{str}" to {typeof<'T>}"""
+                Error [ ValueConversionError(inputSource, errorMessage) ]
 
-        Source(getValue, [ JsonBody(typeof<'T>) ])
+            | true, value ->
+                Ok value
+
+        box converterResult
 
 
-    let queryParameter parameterName =
-        let sourceInfo = QueryParameter parameterName
+    let private getValueConverter (ty : Type) inputSource : string -> obj =
+        if ty = typeof<string> then
+            fun str -> createConverterResult inputSource str (true, str)
 
-        let getValue (ctx : HttpContext) =
-            task {
-                match ctx.TryGetQueryStringValue(parameterName) with
-                | None -> return Error [ SourceValueMissing sourceInfo ]
-                | Some value -> return Ok (string value)
-            }
+        elif ty = typeof<int> then
+            fun str -> Int32.TryParse(str) |> (createConverterResult inputSource str)
+            
+        elif ty = typeof<float> then
+            fun str -> Double.TryParse(str) |> (createConverterResult inputSource str)
+             
+        elif ty = typeof<Guid> then
+            fun str -> Guid.TryParse(str) |> (createConverterResult inputSource str)
 
-        Source(getValue, [ sourceInfo ])
+        else
+            failwithf "%A has unsupported type: %O" inputSource ty 
 
 
     let pathParameter<'T> parameterName =
-        let sourceInfo = PathParameter parameterName
+        let inputSource = PathParameter parameterName
+        let ty = typeof<'T>
+        let convertValue = getValueConverter ty inputSource
+        {
+            GetInputValue = fun ctx ->
+                task {
+                    match ctx.Request.RouteValues.TryGetValue(parameterName) with
+                    | false, _ -> return Error [ InputValueMissing inputSource ]
+                    | true, o ->
+                        let str = o :?> string
+                        return convertValue str :?> Result<'T, HandlerInputError list>
+                }
+            InputSources = [ inputSource ]
+        }
 
-        let convertValue : obj -> obj =
-            if typeof<'T> = typeof<int> then fun v -> System.Int32.Parse(v :?> string) |> box
-            elif typeof<'T> = typeof<string> then box
-            else failwith "BOOM"
 
-        let getValue (ctx : HttpContext) =
-            task {
-                match ctx.Request.RouteValues.TryGetValue(parameterName) with
-                | false, _ -> return Error [ SourceValueMissing sourceInfo ]
-                | true, value -> return Ok (convertValue value :?> 'T)
-            }
+    let queryParameter<'T> parameterName =
+        let inputSource = QueryParameter parameterName
+        let ty = typeof<'T>
+        let convertValue = getValueConverter ty inputSource
+        {
+            GetInputValue = fun ctx ->
+                task {
+                    match ctx.TryGetQueryStringValue(parameterName) with
+                    | None -> return Error [ InputValueMissing inputSource ]
+                    | Some str -> return convertValue str :?> Result<'T, HandlerInputError list>
+                }
+            InputSources = [ inputSource ]
+        }
 
-        Source(getValue, [ sourceInfo ])
+
+    let jsonBody<'T> =
+        {
+            GetInputValue = fun ctx ->
+                task {
+                    try
+                        let! value = ctx.BindJsonAsync<'T>()
+                        return Ok value
+                    with ex ->
+                        return Error [ JsonDeserializationError ex ]
+                }
+            InputSources = [ JsonBody(typeof<'T>) ]
+        }
 
 
     type RequestHandlerBuilder() =
 
-        member _.MergeSources(aSource : Source<_>, bSource : Source<_>) =
-            let (Source(getAValue, aInfo)) = aSource
-            let (Source(getBValue, bInfo)) = bSource
+        member _.MergeSources(input1 : HandlerInput<_>, input2 : HandlerInput<_>) =
+            {
+                GetInputValue = fun ctx ->
+                    task {
+                        let! result1 = input1.GetInputValue ctx
+                        let! result2 = input2.GetInputValue ctx
+                        match result1, result2 with
+                        | Ok value1, Ok value2 -> return Ok (value1, value2)
+                        | Error errors1, Error errors2 -> return Error (errors1 @ errors2)
+                        | Error errors, _ | _, Error errors -> return Error (errors)
+                    }
+                InputSources = input1.InputSources @ input2.InputSources
+            }
 
-            let getValues ctx =
-                task {
-                    let! aResult = getAValue ctx
-                    let! bResult = getBValue ctx
-                    match aResult, bResult with
-                    | Ok aValue, Ok bValue -> return Ok (aValue, bValue)
-                    | Error aErrors, Error bErrors -> return Error (aErrors @ bErrors)
-                    | Error errors, _ | _, Error errors -> return Error (errors)
-                }
-
-            Source(getValues, aInfo @ bInfo)
-
-        member _.BindReturn(source: Source<_>, mapping: 'T -> Task<_>) : RequestHandler<_> =
-            let (Source(getValue, sourceInfo)) = source
-
+        member _.BindReturn(input: HandlerInput<_>, mapping: 'T -> Task<_>) : RequestHandler<_> =
             let requestHandler ctx =
                 task {
-                    match! getValue ctx with
+                    match! input.GetInputValue ctx with
                     | Ok value ->
                         let! output = mapping value
                         return Ok output
@@ -102,7 +133,7 @@ module Request =
                         return Error errors
                 }
 
-            (requestHandler, sourceInfo)
+            (requestHandler, input.InputSources)
 
 
     let handler = RequestHandlerBuilder()

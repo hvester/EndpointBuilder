@@ -24,10 +24,10 @@ module OpenApiGeneration =
                 | EndpointList es -> yield! getEndpointHandlers es
         }
 
-    let generateParameters (sourceInfos : SourceInfo list) =
-        sourceInfos
-        |> List.choose (fun info ->
-            match info with
+    let generateParameters (inputSources : HandlerInputSource list) =
+        inputSources
+        |> List.choose (fun inputSource ->
+            match inputSource with
             | QueryParameter name ->
                 OpenApiParameter(
                     Required = true,

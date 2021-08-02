@@ -49,7 +49,7 @@ module Routing =
     let connect pattern endpointHandler = CONNECT [ route pattern endpointHandler ]
 
 
-    let routef (format : PrintfFormat<_,_,_,_, 'T>) (createEndpointHandler : Source<'T> -> EndpointHandler) =
+    let routef (format : PrintfFormat<_,_,_,_, 'T>) (createEndpointHandler : HandlerInput<'T> -> EndpointHandler) =
         let re = Regex("\{([a-zA-Z0-9_]+):([a-z]+:)*(\%s|\%i)\}")
         let path =
             format.Value
@@ -57,7 +57,7 @@ module Routing =
                 .Replace(":%i", ":int")
         let m = re.Matches(format.Value).[0]
         let variableName = m.Groups.[1].Value
-        route path (createEndpointHandler (pathParameter variableName))
+        route path (createEndpointHandler (pathParameter<'T> variableName))
 
 
     let subRoute pattern (endpoints : Endpoints list) =
