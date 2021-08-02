@@ -12,6 +12,7 @@
     <Compile Include="Request.fs" />
     <Compile Include="Response.fs" />
     <Compile Include="Routing.fs" />
+    <Compile Include="SchemaConversion.fs" />
     <Compile Include="ApplicationBuilderExtensions.fs" />
   </ItemGroup>
 
@@ -19,6 +20,8 @@
     <PackageReference Include="Giraffe" Version="5.0.0" />
     <PackageReference Include="Microsoft.OpenApi" Version="1.2.3" />
     <PackageReference Include="Ply" Version="0.3.1" />
+    <PackageReference Include="NJsonSchema" Version="10.4.6" />
+    <PackageReference Include="FSharp.Data.JsonSchema" Version="1.0.0" />
   </ItemGroup>
 
 </Project>
