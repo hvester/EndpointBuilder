@@ -12,6 +12,7 @@ open Microsoft.OpenApi.Writers
 open FSharp.Control.Tasks
 open Giraffe
 open Microsoft.OpenApi.Models
+open SchemaConversion
 
 module OpenApiGeneration =
 
@@ -23,22 +24,26 @@ module OpenApiGeneration =
                 | EndpointList es -> yield! getEndpointHandlers es
         }
 
-
     let generateParameters (sourceInfos : SourceInfo list) =
         sourceInfos
-        |> List.map (fun info ->
+        |> List.choose (fun info ->
             match info with
             | QueryParameter name ->
                 OpenApiParameter(
                     Required = true,
                     In = Nullable(ParameterLocation.Query),
                     Name = name)
+                |> Some
             
             | PathParameter name ->
                 OpenApiParameter(
                     Required = true,
                     In = Nullable(ParameterLocation.Path),
-                    Name = name))
+                    Name = name)
+                |> Some
+                
+            | JsonBody _ ->
+                None)
 
 
     let generateOpenApiPathItem (handlers : EndpointHandler seq) =
@@ -53,10 +58,21 @@ module OpenApiGeneration =
 
                 let responses = OpenApiResponses()
                 responses.Add("200", OpenApiResponse(Description = "OK"))
+
+                let requestBody =
+                    h.InputSources
+                    |> List.tryPick (function | JsonBody ty -> Some ty | _ -> None)
+                    |> Option.map (fun ty ->
+                        OpenApiRequestBody(
+                            Content = dict [
+                                "application/json", OpenApiMediaType(Schema = generateSchema ty)
+                            ]))
+
                 let operation =
                     OpenApiOperation(
                         Description = "Description test",
                         Parameters = ResizeArray(generateParameters h.InputSources),
+                        RequestBody = Option.toObj requestBody,
                         Responses = responses)
 
                 (operationType, operation) )

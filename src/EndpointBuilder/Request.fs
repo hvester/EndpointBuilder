@@ -1,5 +1,6 @@
 namespace EndpointBuilder
 
+open System
 open System.Threading.Tasks
 open Microsoft.AspNetCore.Http
 open FSharp.Control.Tasks
@@ -10,26 +11,44 @@ module Request =
 
 
     type SourceInfo =
+        | JsonBody of Type
         | QueryParameter of string
         | PathParameter of string
 
 
-    type SourceError = SourceValueMissing of SourceInfo
+    type SourceError =
+        | JsonDeserializationError of Exception
+        | SourceValueMissing of SourceInfo
 
 
-    type Source<'T> = Source of (HttpContext -> Result<'T, SourceError list>) * SourceInfo list
+    type Source<'T> = Source of (HttpContext -> Task<Result<'T, SourceError list>>) * SourceInfo list
 
 
     type RequestHandler<'T> = (HttpContext -> Task<Result<'T, SourceError list>>) * SourceInfo list
+
+
+    let jsonBody<'T> () =
+        let getValue (ctx : HttpContext) =
+            task {
+                try
+                    let! value = ctx.BindJsonAsync<'T>()
+                    return Ok value
+                with ex ->
+                    return Error [ JsonDeserializationError ex ]
+            }
+
+        Source(getValue, [ JsonBody(typeof<'T>) ])
 
 
     let queryParameter parameterName =
         let sourceInfo = QueryParameter parameterName
 
         let getValue (ctx : HttpContext) =
-            match ctx.TryGetQueryStringValue(parameterName) with
-            | None -> Error [ SourceValueMissing sourceInfo ]
-            | Some value -> Ok (string value)
+            task {
+                match ctx.TryGetQueryStringValue(parameterName) with
+                | None -> return Error [ SourceValueMissing sourceInfo ]
+                | Some value -> return Ok (string value)
+            }
 
         Source(getValue, [ sourceInfo ])
 
@@ -40,12 +59,14 @@ module Request =
         let convertValue : obj -> obj =
             if typeof<'T> = typeof<int> then fun v -> System.Int32.Parse(v :?> string) |> box
             elif typeof<'T> = typeof<string> then box
-            else failwithf "BOOM"
+            else failwith "BOOM"
 
         let getValue (ctx : HttpContext) =
-            match ctx.Request.RouteValues.TryGetValue(parameterName) with
-            | false, _ -> Error [ SourceValueMissing sourceInfo ]
-            | true, value -> Ok (convertValue value :?> 'T)
+            task {
+                match ctx.Request.RouteValues.TryGetValue(parameterName) with
+                | false, _ -> return Error [ SourceValueMissing sourceInfo ]
+                | true, value -> return Ok (convertValue value :?> 'T)
+            }
 
         Source(getValue, [ sourceInfo ])
 
@@ -57,10 +78,14 @@ module Request =
             let (Source(getBValue, bInfo)) = bSource
 
             let getValues ctx =
-                match getAValue ctx, getBValue ctx with
-                | Ok aValue, Ok bValue -> Ok (aValue, bValue)
-                | Error aErrors, Error bErrors -> Error (aErrors @ bErrors)
-                | Error errors, _ | _, Error errors -> Error (errors)
+                task {
+                    let! aResult = getAValue ctx
+                    let! bResult = getBValue ctx
+                    match aResult, bResult with
+                    | Ok aValue, Ok bValue -> return Ok (aValue, bValue)
+                    | Error aErrors, Error bErrors -> return Error (aErrors @ bErrors)
+                    | Error errors, _ | _, Error errors -> return Error (errors)
+                }
 
             Source(getValues, aInfo @ bInfo)
 
@@ -68,14 +93,14 @@ module Request =
             let (Source(getValue, sourceInfo)) = source
 
             let requestHandler ctx =
-                match getValue ctx with
-                | Ok value ->
-                    task {
+                task {
+                    match! getValue ctx with
+                    | Ok value ->
                         let! output = mapping value
                         return Ok output
-                    }
-                | Error errors ->
-                    Task.FromResult(Error errors)
+                    | Error errors ->
+                        return Error errors
+                }
 
             (requestHandler, sourceInfo)
 
