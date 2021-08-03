@@ -45,7 +45,7 @@ module Response =
         
 
     let json (requestHandler : RequestHandler<'T>) =
-        let requestHandlerFunc, sourceInfos = requestHandler
+        let requestHandlerFunc, inputSources = requestHandler
         let f (ctx : HttpContext) =
             task {
                 match! requestHandlerFunc ctx with
@@ -61,7 +61,30 @@ module Response =
         {
             HttpVerb = None
             RoutePattern = ""
-            InputSources = sourceInfos
+            InputSources = inputSources
             ResponseType = ResponseType.Json typeof<'T>
+            RequestDelegate = new RequestDelegate(f)
+        }
+
+
+    let text (requestHandler : RequestHandler<string>) =
+        let requestHandlerFunc, inputSources = requestHandler
+        let f (ctx : HttpContext) =
+            task {
+                match! requestHandlerFunc ctx with
+                | Ok responseString ->
+                    let! _ = ctx.WriteTextAsync(responseString)
+                    return ()
+                | Error errors ->
+                    ctx.SetStatusCode(400)
+                    let! _ = ctx.WriteJsonAsync(errors) // TODO: ProblemsDetails maybe?
+                    return ()
+            }
+            :> Task
+        {
+            HttpVerb = None
+            RoutePattern = ""
+            InputSources = inputSources
+            ResponseType = ResponseType.Text
             RequestDelegate = new RequestDelegate(f)
         }
