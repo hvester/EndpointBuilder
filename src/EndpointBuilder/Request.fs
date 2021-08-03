@@ -12,8 +12,8 @@ module Request =
 
     type HandlerInputSource =
         | JsonBody of Type
-        | QueryParameter of string
-        | PathParameter of string
+        | QueryParameter of string * Type
+        | PathParameter of string * Type
 
 
     type HandlerInputError =
@@ -61,8 +61,8 @@ module Request =
 
 
     let pathParameter<'T> parameterName =
-        let inputSource = PathParameter parameterName
         let ty = typeof<'T>
+        let inputSource = PathParameter(parameterName, ty)
         let convertValue = getValueConverter ty inputSource
         {
             GetInputValue = fun ctx ->
@@ -78,8 +78,8 @@ module Request =
 
 
     let queryParameter<'T> parameterName =
-        let inputSource = QueryParameter parameterName
         let ty = typeof<'T>
+        let inputSource = QueryParameter(parameterName, ty)
         let convertValue = getValueConverter ty inputSource
         {
             GetInputValue = fun ctx ->

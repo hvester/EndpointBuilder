@@ -28,17 +28,19 @@ module OpenApiGeneration =
         inputSources
         |> List.choose (fun inputSource ->
             match inputSource with
-            | QueryParameter name ->
+            | QueryParameter(name, ty) ->
                 OpenApiParameter(
                     Required = true,
                     In = Nullable(ParameterLocation.Query),
+                    Schema = generateSchema ty,
                     Name = name)
                 |> Some
             
-            | PathParameter name ->
+            | PathParameter(name, ty) ->
                 OpenApiParameter(
                     Required = true,
                     In = Nullable(ParameterLocation.Path),
+                    Schema = generateSchema ty,
                     Name = name)
                 |> Some
                 
