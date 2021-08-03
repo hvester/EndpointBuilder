@@ -56,9 +56,6 @@ module OpenApiGeneration =
                     | Some HttpVerb.POST -> OperationType.Post
                     | _ -> OperationType.Get // TODO: Add rest and figure out what to do with None
 
-                let responses = OpenApiResponses()
-                responses.Add("200", OpenApiResponse(Description = "OK"))
-
                 let requestBody =
                     h.InputSources
                     |> List.tryPick (function | JsonBody ty -> Some ty | _ -> None)
@@ -67,6 +64,19 @@ module OpenApiGeneration =
                             Content = dict [
                                 "application/json", OpenApiMediaType(Schema = generateSchema ty)
                             ]))
+
+                let responses = OpenApiResponses()
+                responses.Add(
+                    "200",
+                    OpenApiResponse(
+                        Description = "OK",
+                        Content = dict [
+                            match h.ResponseType with
+                            | ResponseType.Text ->
+                                "text/plain", OpenApiMediaType()
+                            | ResponseType.Json responseType ->
+                                "application/json", OpenApiMediaType(Schema = generateSchema responseType)
+                        ]))
 
                 let operation =
                     OpenApiOperation(
