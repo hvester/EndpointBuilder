@@ -8,6 +8,7 @@ open Microsoft.AspNetCore.Http
 open Microsoft.Extensions.DependencyInjection
 open Microsoft.Extensions.Hosting
 open Giraffe
+open FSharp.Data
 open EndpointBuilder
 
 type Startup() =
@@ -16,6 +17,7 @@ type Startup() =
     // For more information on how to configure your application, visit https://go.microsoft.com/fwlink/?LinkID=398940
     member _.ConfigureServices(services: IServiceCollection) =
         services.AddGiraffe() |> ignore
+        services.AddSingleton<Json.ISerializer>(SystemTextJson.Serializer(Json.DefaultOptions)) |> ignore
 
     // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
     member _.Configure(app: IApplicationBuilder, env: IWebHostEnvironment) =
