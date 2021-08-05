@@ -54,7 +54,7 @@ module Response =
                     return ()
                 | Error errors ->
                     ctx.SetStatusCode(400)
-                    let! _ = ctx.WriteJsonAsync(errors) // TODO: ProblemsDetails maybe?
+                    let! _ = ctx.WriteStringAsync(sprintf "%A" errors) // TODO: ProblemsDetails maybe?
                     return ()
             }
             :> Task
@@ -77,7 +77,7 @@ module Response =
                     return ()
                 | Error errors ->
                     ctx.SetStatusCode(400)
-                    let! _ = ctx.WriteJsonAsync(errors) // TODO: ProblemsDetails maybe?
+                    let! _ = ctx.WriteStringAsync(sprintf "%A" errors) // TODO: ProblemsDetails maybe?
                     return ()
             }
             :> Task
