@@ -9,14 +9,6 @@ open Swashbuckle.AspNetCore.SwaggerGen
 
 module SwashbuckleIntegration =
 
-    let rec getEndpointHandlers (endpoints : Endpoints list) =
-        seq {
-            for e in endpoints do
-                match e with
-                | Endpoint h -> yield h
-                | EndpointList es -> yield! getEndpointHandlers es
-        }
-
     let generateParameters generateSchema (inputSources : HandlerInputSource list) =
         inputSources
         |> List.choose (fun inputSource ->

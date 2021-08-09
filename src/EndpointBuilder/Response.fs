@@ -41,7 +41,16 @@ module Response =
 
     type Endpoints =
         | Endpoint of EndpointHandler
-        | EndpointList of Endpoints list 
+        | EndpointList of Endpoints list
+
+
+    let rec internal getEndpointHandlers (endpoints : Endpoints list) =
+        seq {
+            for e in endpoints do
+                match e with
+                | Endpoint h -> yield h
+                | EndpointList es -> yield! getEndpointHandlers es
+        }
         
 
     let json (requestHandler : RequestHandler<'T>) =
