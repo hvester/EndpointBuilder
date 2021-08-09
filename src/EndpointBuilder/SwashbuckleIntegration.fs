@@ -94,8 +94,9 @@ module SwashbuckleIntegration =
 
         getEndpointHandlers endpoints
         |> Seq.groupBy (fun h -> h.RoutePattern)
-        |> Seq.iter (fun (pattern, handlers) ->
-            document.Paths.[pattern] <- generateOpenApiPathItem generateSchema handlers)
+        |> Seq.iter (fun (path, handlers) ->
+            let formattedPath = NSwagIntegration.formatPath path
+            document.Paths.[formattedPath] <- generateOpenApiPathItem generateSchema handlers)
 
         document.Components <- OpenApiComponents()
         document.Components.Schemas <- schemaRepo.Schemas

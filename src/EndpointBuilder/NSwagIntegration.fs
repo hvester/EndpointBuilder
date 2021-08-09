@@ -1,5 +1,6 @@
 namespace EndpointBuilder
 
+open System.Text.RegularExpressions
 open NJsonSchema
 open NJsonSchema.Generation
 open NSwag
@@ -68,13 +69,24 @@ module NSwagIntegration =
             addResponses generateSchema operation endpointHandler.ResponseType)
 
 
+    let internal formatPath path =
+        let matchEvaluator = MatchEvaluator(fun m ->
+            let parts = m.Value.Split(':')
+            if parts.Length < 2 then
+                m.Value
+            else
+                parts.[0] + "}")
+        pathParameterRegex.Replace(path, matchEvaluator) 
+
+
     let addPaths (doc : OpenApiDocument) generateSchema (endpoints : Endpoints list) =
         getEndpointHandlers endpoints
         |> Seq.filter (fun h -> h.HttpVerb.IsSome)
         |> Seq.groupBy (fun h -> h.RoutePattern)
-        |> Seq.iter (fun (pattern, handlers) ->
+        |> Seq.iter (fun (path, handlers) ->
             let pathItem = OpenApiPathItem()
-            doc.Paths.Add(pattern, pathItem)
+
+            doc.Paths.Add(formatPath path, pathItem)
             pathItem.Description <- "Description" // TODO: From handler data
 
             for endpointHandler in handlers do

@@ -1,5 +1,6 @@
 namespace EndpointBuilder
 
+open System.Text.RegularExpressions
 open System.Runtime.CompilerServices
 open Microsoft.AspNetCore.Http
 open Microsoft.AspNetCore.Builder
@@ -19,12 +20,17 @@ type EndpointRouteBuilderExtensions() =
             | Endpoint h ->
                 match h.HttpVerb with
                 | Some httpVerb ->
-                    builder.MapMethods(h.RoutePattern, [ httpVerb.ToString() ], h.RequestDelegate)
+                    let matchEvaluator = MatchEvaluator(fun m ->
+                        m.Value
+                            .Replace(":%s", "")
+                            .Replace(":%i", ":int"))
+                    let path = pathParameterRegex.Replace(h.RoutePattern, matchEvaluator) 
+                    builder.MapMethods(path, [ httpVerb.ToString() ], h.RequestDelegate)
                     |> ignore
                 
                 | None ->
                     builder.Map(h.RoutePattern, h.RequestDelegate)
-                    |> ignore              
+                    |> ignore
 
             | EndpointList endpointsList ->
                 builder.MapEndpointBuilderEndpoints(endpointsList))
