@@ -19,9 +19,9 @@ type EndpointRouteBuilderExtensions() =
                 .Replace(":%s", "")
                 .Replace(":%i", ":int"))
 
-        for path, handler in getEndpointHandlers endpoints do
+        for path, httpVerbOpt, handler in getEndpointHandlers endpoints do
             let pattern = pathParameterRegex.Replace(path, matchEvaluator) 
-            match handler.HttpVerb with
+            match httpVerbOpt with
             | Some httpVerb ->
                 builder.MapMethods(pattern, [ httpVerb.ToString() ], handler.RequestDelegate)
                 |> ignore

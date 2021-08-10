@@ -5,8 +5,21 @@ open System.Text.RegularExpressions
 [<AutoOpen>]
 module Routing =  
 
+
+    [<RequireQualifiedAccess>]
+    type HttpVerb =
+        | GET
+        | POST
+        | PUT
+        | PATCH
+        | DELETE
+        | HEAD
+        | OPTIONS
+        | TRACE
+
+
     type Endpoints =
-        | Endpoint of string * EndpointHandler
+        | Endpoint of string * HttpVerb option * EndpointHandler
         | EndpointList of string * Endpoints list
 
 
@@ -15,8 +28,8 @@ module Routing =
             seq {
                 for e in es do
                     match e with
-                    | Endpoint(path, handler) ->
-                        yield (acc + path, handler)
+                    | Endpoint(path, httpVerb, handler) ->
+                        yield (acc + path, httpVerb, handler)
 
                     | EndpointList(path, innerEndpoints) ->
                         yield! loop (acc + path) innerEndpoints
@@ -24,24 +37,19 @@ module Routing =
         loop "" endpoints
 
 
-    let rec private updateEndpointHandlers mapping (endpoints : Endpoints list) =
+    let rec private updateHttpVerb httpVerb (endpoints : Endpoints list) =
         endpoints
         |> List.map (function
             | EndpointList(path, innerEndpoints) ->
-                EndpointList(path, updateEndpointHandlers mapping innerEndpoints)
+                EndpointList(path, updateHttpVerb httpVerb innerEndpoints)
 
-            | Endpoint(path, handler) ->
-                Endpoint(path, mapping handler))
+            | Endpoint(path, oldHttpVerb, handler) ->
+                let newHttpVerb = if oldHttpVerb.IsSome then oldHttpVerb else Some httpVerb
+                Endpoint(path, newHttpVerb, handler))
 
 
     let private withHttpVerb httpVerb (endpoints : Endpoints list) =
-        let endpointsWithHttpVerb =
-            endpoints
-            |> updateEndpointHandlers (fun endpointHandler ->
-                match endpointHandler.HttpVerb with
-                | Some _ -> endpointHandler
-                | None -> { endpointHandler with HttpVerb = Some httpVerb })
-        EndpointList("", endpointsWithHttpVerb)
+        EndpointList("", updateHttpVerb httpVerb endpoints)
 
 
     let GET endpoints = withHttpVerb HttpVerb.GET endpoints
@@ -52,21 +60,20 @@ module Routing =
     let HEAD endpoints = withHttpVerb HttpVerb.HEAD endpoints
     let OPTIONS endpoints = withHttpVerb HttpVerb.OPTIONS endpoints
     let TRACE endpoints = withHttpVerb HttpVerb.TRACE endpoints
-    let CONNECT endpoints = withHttpVerb HttpVerb.CONNECT endpoints
 
 
-    let route path (endpointHandler : EndpointHandler) = Endpoint (path, endpointHandler)
+    let route path (endpointHandler : EndpointHandler) = Endpoint (path, None, endpointHandler)
 
 
-    let get pattern endpointHandler = GET [ route pattern endpointHandler ]
-    let post pattern endpointHandler = POST [ route pattern endpointHandler ]
-    let put pattern endpointHandler = PUT [ route pattern endpointHandler ]
-    let patch pattern endpointHandler = PATCH [ route pattern endpointHandler ]
-    let delete pattern endpointHandler = DELETE [ route pattern endpointHandler ]
-    let head pattern endpointHandler = HEAD [ route pattern endpointHandler ]
-    let options pattern endpointHandler = OPTIONS [ route pattern endpointHandler ]
-    let trace pattern endpointHandler = TRACE [ route pattern endpointHandler ]
-    let connect pattern endpointHandler = CONNECT [ route pattern endpointHandler ]
+    let private routeWithVerb path httpVerb handler = Endpoint (path, Some httpVerb, handler)
+    let get path endpointHandler = routeWithVerb path HttpVerb.GET endpointHandler
+    let post path endpointHandler = routeWithVerb path HttpVerb.POST endpointHandler
+    let put path endpointHandler = routeWithVerb path HttpVerb.PUT endpointHandler
+    let patch path endpointHandler = routeWithVerb path HttpVerb.PATCH endpointHandler
+    let delete path endpointHandler = routeWithVerb path HttpVerb.DELETE endpointHandler
+    let head path endpointHandler = routeWithVerb path HttpVerb.HEAD endpointHandler
+    let options path endpointHandler = routeWithVerb path HttpVerb.OPTIONS endpointHandler
+    let trace path endpointHandler = routeWithVerb path HttpVerb.TRACE endpointHandler
 
 
     let internal pathParameterRegex = Regex("\{([a-zA-Z0-9_]+):([a-z]+:)*(\%s|\%i)\}")

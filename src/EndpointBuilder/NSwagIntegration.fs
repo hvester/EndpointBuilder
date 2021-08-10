@@ -58,8 +58,8 @@ module NSwagIntegration =
             response.Content.Add("application/json", openApiMediaType)
 
 
-    let addOperation generateSchema (pathItem : OpenApiPathItem) endpointHandler =
-        endpointHandler.HttpVerb
+    let addOperation generateSchema (pathItem : OpenApiPathItem) httpVerb endpointHandler =
+        httpVerb
         |> Option.iter (fun httpVerb ->
             let operation = OpenApiOperation()
             pathItem.Add(string httpVerb, operation)
@@ -81,16 +81,16 @@ module NSwagIntegration =
 
     let addPaths (doc : OpenApiDocument) generateSchema (endpoints : Endpoints list) =
         getEndpointHandlers endpoints
-        |> Seq.filter (fun (_, handler) -> handler.HttpVerb.IsSome)
-        |> Seq.groupBy (fun (path, _) -> path)
+        |> Seq.filter (fun (_, httpVerb, _) -> httpVerb.IsSome)
+        |> Seq.groupBy (fun (path, _, _) -> path)
         |> Seq.iter (fun (path, handlerGroup) ->
             let pathItem = OpenApiPathItem()
 
             doc.Paths.Add(formatPath path, pathItem)
             pathItem.Description <- "Description" // TODO: From handler data
 
-            for _, handler in handlerGroup do
-                addOperation generateSchema pathItem handler)
+            for _, httpVerb, handler in handlerGroup do
+                addOperation generateSchema pathItem httpVerb handler)
 
 
     let generateOpenApiDocument serializerOptions (endpoints : Endpoints list) =

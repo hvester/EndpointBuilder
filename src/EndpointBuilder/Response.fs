@@ -11,19 +11,6 @@ module Response =
 
 
     [<RequireQualifiedAccess>]
-    type HttpVerb =
-        | GET
-        | POST
-        | PUT
-        | PATCH
-        | DELETE
-        | HEAD
-        | OPTIONS
-        | TRACE
-        | CONNECT
-
-
-    [<RequireQualifiedAccess>]
     type ResponseType =
         | Text
         | Json of Type
@@ -31,7 +18,6 @@ module Response =
 
     type EndpointHandler =
         {
-            HttpVerb : HttpVerb option
             InputSources : HandlerInputSource list
             ResponseType : ResponseType
             RequestDelegate : RequestDelegate
@@ -53,7 +39,6 @@ module Response =
             }
             :> Task
         {
-            HttpVerb = None
             InputSources = inputSources
             ResponseType = ResponseType.Json typeof<'T>
             RequestDelegate = new RequestDelegate(f)
@@ -75,7 +60,6 @@ module Response =
             }
             :> Task
         {
-            HttpVerb = None
             InputSources = inputSources
             ResponseType = ResponseType.Text
             RequestDelegate = new RequestDelegate(f)

@@ -33,18 +33,23 @@ module SwashbuckleIntegration =
                 None)
 
 
-    let generateOpenApiPathItem generateSchema (handlers : EndpointHandler seq) =
+    let generateOpenApiPathItem generateSchema handlersWithHttpVerbs =
         let operations =
-            handlers
-            |> Seq.map (fun h ->
+            handlersWithHttpVerbs
+            |> Seq.map (fun (httpVerb, handler) ->
                 let operationType =
-                    match h.HttpVerb with
+                    match httpVerb with
                     | Some HttpVerb.GET -> OperationType.Get
                     | Some HttpVerb.POST -> OperationType.Post
+                    | Some HttpVerb.PUT -> OperationType.Put
+                    | Some HttpVerb.PATCH -> OperationType.Patch
+                    | Some HttpVerb.DELETE -> OperationType.Delete
+                    | Some HttpVerb.OPTIONS -> OperationType.Options
+                    | Some HttpVerb.TRACE -> OperationType.Trace
                     | _ -> OperationType.Get // TODO: Add rest and figure out what to do with None
 
                 let requestBody =
-                    h.InputSources
+                    handler.InputSources
                     |> List.tryPick (function | JsonBody ty -> Some ty | _ -> None)
                     |> Option.map (fun ty ->
                         generateSchema ty |> ignore
@@ -60,7 +65,7 @@ module SwashbuckleIntegration =
                     OpenApiResponse(
                         Description = "OK",
                         Content = dict [
-                            match h.ResponseType with
+                            match handler.ResponseType with
                             | ResponseType.Text ->
                                 "text/plain", OpenApiMediaType()
                             | ResponseType.Json responseType ->
@@ -70,7 +75,7 @@ module SwashbuckleIntegration =
                 let operation =
                     OpenApiOperation(
                         Description = "Description test",
-                        Parameters = ResizeArray(generateParameters generateSchema h.InputSources),
+                        Parameters = ResizeArray(generateParameters generateSchema handler.InputSources),
                         RequestBody = Option.toObj requestBody,
                         Responses = responses)
 
@@ -93,12 +98,15 @@ module SwashbuckleIntegration =
         let generateSchema (ty : Type) = schemaGenerator.GenerateSchema(ty, schemaRepo)
 
         getEndpointHandlers endpoints
-        |> Seq.filter (fun (_, handler) -> handler.HttpVerb.IsSome)
-        |> Seq.groupBy (fun (path, _) -> path)
+        |> Seq.filter (fun (_, httpVerb, _) -> httpVerb.IsSome)
+        |> Seq.groupBy (fun (path, _, _) -> path)
         |> Seq.iter (fun (path, handlerGroup) ->
             let formattedPath = NSwagIntegration.formatPath path
-            let handlers = Seq.map snd handlerGroup
-            document.Paths.[formattedPath] <- generateOpenApiPathItem generateSchema handlers)
+            let pathItem =
+                handlerGroup
+                |> Seq.map (fun (_, httpVerb, handler) -> (httpVerb, handler))
+                |> generateOpenApiPathItem generateSchema
+            document.Paths.[formattedPath] <- pathItem)
 
         document.Components <- OpenApiComponents()
         document.Components.Schemas <- schemaRepo.Schemas
