@@ -14,26 +14,22 @@ type EndpointRouteBuilderExtensions() =
 
     [<Extension>]
     static member MapEndpointBuilderEndpoints(builder : IEndpointRouteBuilder, endpoints : Endpoints list) =
+        let matchEvaluator = MatchEvaluator(fun m ->
+            m.Value
+                .Replace(":%s", "")
+                .Replace(":%i", ":int"))
 
-        endpoints
-        |> List.iter (function
-            | Endpoint h ->
-                match h.HttpVerb with
-                | Some httpVerb ->
-                    let matchEvaluator = MatchEvaluator(fun m ->
-                        m.Value
-                            .Replace(":%s", "")
-                            .Replace(":%i", ":int"))
-                    let path = pathParameterRegex.Replace(h.RoutePattern, matchEvaluator) 
-                    builder.MapMethods(path, [ httpVerb.ToString() ], h.RequestDelegate)
-                    |> ignore
-                
-                | None ->
-                    builder.Map(h.RoutePattern, h.RequestDelegate)
-                    |> ignore
+        for path, handler in getEndpointHandlers endpoints do
+            let pattern = pathParameterRegex.Replace(path, matchEvaluator) 
+            match handler.HttpVerb with
+            | Some httpVerb ->
+                builder.MapMethods(pattern, [ httpVerb.ToString() ], handler.RequestDelegate)
+                |> ignore
+            
+            | None ->
+                builder.Map(pattern, handler.RequestDelegate)
+                |> ignore
 
-            | EndpointList endpointsList ->
-                builder.MapEndpointBuilderEndpoints(endpointsList))
 
     [<Extension>]
     static member MapSwaggerEndpoint(builder : IEndpointRouteBuilder, serializerOptions, endpoints) =

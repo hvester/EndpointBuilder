@@ -81,23 +81,24 @@ module NSwagIntegration =
 
     let addPaths (doc : OpenApiDocument) generateSchema (endpoints : Endpoints list) =
         getEndpointHandlers endpoints
-        |> Seq.filter (fun h -> h.HttpVerb.IsSome)
-        |> Seq.groupBy (fun h -> h.RoutePattern)
-        |> Seq.iter (fun (path, handlers) ->
+        |> Seq.filter (fun (_, handler) -> handler.HttpVerb.IsSome)
+        |> Seq.groupBy (fun (path, _) -> path)
+        |> Seq.iter (fun (path, handlerGroup) ->
             let pathItem = OpenApiPathItem()
 
             doc.Paths.Add(formatPath path, pathItem)
             pathItem.Description <- "Description" // TODO: From handler data
 
-            for endpointHandler in handlers do
-                addOperation generateSchema pathItem endpointHandler)
+            for _, handler in handlerGroup do
+                addOperation generateSchema pathItem handler)
 
 
     let generateOpenApiDocument serializerOptions (endpoints : Endpoints list) =
         let settings =
             JsonSchemaGeneratorSettings(
                 SerializerOptions=serializerOptions,
-                SchemaType=SchemaType.OpenApi3)
+                SchemaType=SchemaType.OpenApi3,
+                DefaultReferenceTypeNullHandling=ReferenceTypeNullHandling.NotNull)
         let generateSchema ty = JsonSchema.FromType(ty, settings)
         let doc = OpenApiDocument(SchemaType=SchemaType.OpenApi3)
         addPaths doc generateSchema endpoints

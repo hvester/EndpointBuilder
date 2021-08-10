@@ -1,26 +1,47 @@
 namespace EndpointBuilder
 
-open Microsoft.FSharp.Reflection
 open System.Text.RegularExpressions
 
 [<AutoOpen>]
-module Routing =
+module Routing =  
 
-    let rec private updateEndpointHandlers mapping endpointsList =
-        endpointsList
-        |> List.map (fun endpoints ->
-            match endpoints with
-            | EndpointList el -> EndpointList (updateEndpointHandlers mapping el)
-            | Endpoint endpointHandler -> Endpoint (mapping endpointHandler))
+    type Endpoints =
+        | Endpoint of string * EndpointHandler
+        | EndpointList of string * Endpoints list
 
 
-    let private withHttpVerb httpVerb endpointsList =
-        endpointsList
-        |> updateEndpointHandlers (fun endpointHandler ->
-            match endpointHandler.HttpVerb with
-            | Some _ -> endpointHandler
-            | None -> { endpointHandler with HttpVerb = Some httpVerb })
-        |> EndpointList
+    let internal getEndpointHandlers (endpoints : Endpoints list) =
+        let rec loop acc es =
+            seq {
+                for e in es do
+                    match e with
+                    | Endpoint(path, handler) ->
+                        yield (acc + path, handler)
+
+                    | EndpointList(path, innerEndpoints) ->
+                        yield! loop (acc + path) innerEndpoints
+            }
+        loop "" endpoints
+
+
+    let rec private updateEndpointHandlers mapping (endpoints : Endpoints list) =
+        endpoints
+        |> List.map (function
+            | EndpointList(path, innerEndpoints) ->
+                EndpointList(path, updateEndpointHandlers mapping innerEndpoints)
+
+            | Endpoint(path, handler) ->
+                Endpoint(path, mapping handler))
+
+
+    let private withHttpVerb httpVerb (endpoints : Endpoints list) =
+        let endpointsWithHttpVerb =
+            endpoints
+            |> updateEndpointHandlers (fun endpointHandler ->
+                match endpointHandler.HttpVerb with
+                | Some _ -> endpointHandler
+                | None -> { endpointHandler with HttpVerb = Some httpVerb })
+        EndpointList("", endpointsWithHttpVerb)
 
 
     let GET endpoints = withHttpVerb HttpVerb.GET endpoints
@@ -34,8 +55,7 @@ module Routing =
     let CONNECT endpoints = withHttpVerb HttpVerb.CONNECT endpoints
 
 
-    let route pattern (endpointHandler : EndpointHandler) =
-        Endpoint { endpointHandler with RoutePattern = pattern + endpointHandler.RoutePattern }
+    let route path (endpointHandler : EndpointHandler) = Endpoint (path, endpointHandler)
 
 
     let get pattern endpointHandler = GET [ route pattern endpointHandler ]
@@ -60,8 +80,5 @@ module Routing =
         route path (createEndpointHandler (pathParameter<'T> variableName))
 
 
-    let subRoute pattern (endpoints : Endpoints list) =
-        endpoints
-        |> updateEndpointHandlers (fun endpointHandler ->
-            { endpointHandler with RoutePattern = pattern + endpointHandler.RoutePattern })
-        |> EndpointList
+    let subRoute path (endpoints : Endpoints list) =
+        EndpointList (path, endpoints)

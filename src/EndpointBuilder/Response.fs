@@ -32,24 +32,9 @@ module Response =
     type EndpointHandler =
         {
             HttpVerb : HttpVerb option
-            RoutePattern : string
             InputSources : HandlerInputSource list
             ResponseType : ResponseType
             RequestDelegate : RequestDelegate
-        }
-
-
-    type Endpoints =
-        | Endpoint of EndpointHandler
-        | EndpointList of Endpoints list
-
-
-    let rec internal getEndpointHandlers (endpoints : Endpoints list) =
-        seq {
-            for e in endpoints do
-                match e with
-                | Endpoint h -> yield h
-                | EndpointList es -> yield! getEndpointHandlers es
         }
         
 
@@ -69,7 +54,6 @@ module Response =
             :> Task
         {
             HttpVerb = None
-            RoutePattern = ""
             InputSources = inputSources
             ResponseType = ResponseType.Json typeof<'T>
             RequestDelegate = new RequestDelegate(f)
@@ -92,7 +76,6 @@ module Response =
             :> Task
         {
             HttpVerb = None
-            RoutePattern = ""
             InputSources = inputSources
             ResponseType = ResponseType.Text
             RequestDelegate = new RequestDelegate(f)
