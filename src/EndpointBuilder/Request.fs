@@ -60,7 +60,7 @@ module Request =
             failwithf "%A has unsupported type: %O" inputSource ty 
 
 
-    let pathParameter<'T> parameterName =
+    let fromPath<'T> parameterName =
         let ty = typeof<'T>
         let inputSource = PathParameter(parameterName, ty)
         let convertValue = getValueConverter ty inputSource
@@ -77,7 +77,7 @@ module Request =
         }
 
 
-    let queryParameter<'T> parameterName =
+    let fromQuery<'T> parameterName =
         let ty = typeof<'T>
         let inputSource = QueryParameter(parameterName, ty)
         let convertValue = getValueConverter ty inputSource
@@ -92,7 +92,7 @@ module Request =
         }
 
 
-    let jsonBody<'T> =
+    let fromJsonBody<'T> =
         {
             GetInputValue = fun ctx ->
                 task {

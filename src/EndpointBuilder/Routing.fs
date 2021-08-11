@@ -84,7 +84,7 @@ module Routing =
         let path = format.Value
         let m = pathParameterRegex.Matches(path).[0]
         let variableName = m.Groups.[1].Value
-        route path (createEndpointHandler (pathParameter<'T> variableName))
+        route path (createEndpointHandler (fromPath<'T> variableName))
 
 
     let subRoute path (endpoints : Endpoints list) =
