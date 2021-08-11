@@ -106,6 +106,22 @@ module Request =
         }
 
 
+    let getHttpContext : HandlerInput<HttpContext> =
+        {
+            GetInputValue = fun ctx -> Task.FromResult(Ok ctx)
+            InputSources = []
+        }
+
+
+    let fromServices<'T> : HandlerInput<'T> =
+        {
+            GetInputValue = fun ctx ->
+                let service = ctx.GetService<'T>()
+                Task.FromResult(Ok service)
+            InputSources = []
+        }
+
+
     type RequestHandlerBuilder() =
 
         member _.MergeSources(input1 : HandlerInput<_>, input2 : HandlerInput<_>) =
