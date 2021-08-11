@@ -28,6 +28,14 @@ module SwashbuckleIntegration =
                     Schema = generateSchema ty,
                     Name = name)
                 |> Some
+
+            | Header(header, ty) ->
+                OpenApiParameter(
+                    Required = true,
+                    In = Nullable(ParameterLocation.Header),
+                    Schema = generateSchema ty,
+                    Name = header)
+                |> Some
                 
             | JsonBody _ ->
                 None)

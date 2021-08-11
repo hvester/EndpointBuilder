@@ -14,6 +14,7 @@ module Request =
         | JsonBody of Type
         | QueryParameter of string * Type
         | PathParameter of string * Type
+        | Header of string * Type
 
 
     type HandlerInputError =
@@ -87,6 +88,21 @@ module Request =
                     match ctx.TryGetQueryStringValue(parameterName) with
                     | None -> return Error [ InputValueMissing inputSource ]
                     | Some str -> return convertValue str :?> Result<'T, HandlerInputError list>
+                }
+            InputSources = [ inputSource ]
+        }
+
+
+    let fromHeader<'T> headerName =
+        let ty = typeof<'T>
+        let inputSource = Header(headerName, ty)
+        let convertValue = getValueConverter ty inputSource
+        {
+            GetInputValue = fun ctx ->
+                task {
+                    match ctx.Request.Headers.TryGetValue(headerName) with
+                    | false, _ -> return Error [ InputValueMissing inputSource ]
+                    | true, value -> return convertValue (string value) :?> Result<'T, HandlerInputError list>
                 }
             InputSources = [ inputSource ]
         }
