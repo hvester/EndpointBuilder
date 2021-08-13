@@ -27,12 +27,12 @@ module NSwagIntegration =
                 parameter.Name <- name
                 operation.Parameters.Add(parameter)
 
-            | Header(header, ty) ->
+            | Header(name, ty) ->
                 let parameter = OpenApiParameter()
                 parameter.IsRequired <- true
                 parameter.Kind <- OpenApiParameterKind.Header
                 parameter.Schema <- generateSchema ty
-                parameter.Name <- header
+                parameter.Name <- name
                 operation.Parameters.Add(parameter)
                 
             | JsonBody _ -> ()
