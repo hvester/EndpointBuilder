@@ -1,6 +1,7 @@
 namespace EndpointBuilder
 
 open System.Text.RegularExpressions
+open System.Reflection
 open NJsonSchema
 open NJsonSchema.Generation
 open NSwag
@@ -101,13 +102,33 @@ module NSwagIntegration =
                 addOperation generateSchema pathItem httpVerb handler)
 
 
+    let copyJsonSchemaProperties (source : JsonSchema) (target : JsonSchema) =
+        for sourceProp in source.GetType().GetProperties() do
+            if sourceProp.CanWrite && not (sourceProp.Name.StartsWith("Parent")) then
+                let value = sourceProp.GetValue(source)
+                let targetProp = target.GetType().GetProperty(sourceProp.Name)
+                targetProp.SetValue(target, value)
+
+
+    type OptionSchemaProcessor() =
+        interface ISchemaProcessor with   
+            member _.Process(context) =
+                let ty = context.Type
+                if ty.GetTypeInfo().IsGenericType && ty.GetGenericTypeDefinition() = typedefof<option<_>> then
+                    let innerType = ty.GenericTypeArguments.[0]
+                    let innerSchema = context.Generator.Generate(innerType)
+                    copyJsonSchemaProperties innerSchema context.Schema
+
+
     let generateOpenApiDocument serializerOptions (endpoints : Endpoints list) =
         let settings =
             JsonSchemaGeneratorSettings(
                 SerializerOptions=serializerOptions,
-                SchemaType=SchemaType.OpenApi3,
-                DefaultReferenceTypeNullHandling=ReferenceTypeNullHandling.NotNull)
+                SchemaType=SchemaType.OpenApi3)
+
+        settings.SchemaProcessors.Add(OptionSchemaProcessor())
         let generateSchema ty = JsonSchema.FromType(ty, settings)
+
         let doc = OpenApiDocument(SchemaType=SchemaType.OpenApi3)
         addPaths doc generateSchema endpoints
         doc
