@@ -2,8 +2,11 @@ namespace EndpointBuilder
 
 open System
 open System.IO
+open System.Text.RegularExpressions
 open System.Reflection
+open FSharp.Reflection
 open Microsoft.OpenApi.Models
+open Microsoft.OpenApi.Any
 open Microsoft.OpenApi.Writers
 open Swashbuckle.AspNetCore.SwaggerGen
 
@@ -152,6 +155,28 @@ module SwashbuckleIntegration =
                         schema.Required.Add(propName) |> ignore
 
 
+    type FieldlessUnionsToEnumsFilter() =
+
+        let createEnumCase caseName =
+            { 
+                new IOpenApiPrimitive with
+                    member _.AnyType = AnyType.Primitive
+                    member _.PrimitiveType = PrimitiveType.String
+                    member _.Write(writer, _) =
+                        writer.WriteRaw($"\"%s{caseName}\"")
+            }
+
+
+        interface ISchemaFilter with
+            member _.Apply(schema, context) =
+                // TODO: Check that all cases are fieldless.
+                if FSharpType.IsUnion context.Type && not (isOptionType context.Type) then
+                    copyJsonSchemaProperties (OpenApiSchema()) schema
+                    schema.Type <- "string"
+                    for case in FSharpType.GetUnionCases context.Type do
+                        schema.Enum.Add(createEnumCase case.Name)
+
+
     let private formatPath path =
         let matchEvaluator = MatchEvaluator(fun m ->
             let parts = m.Value.Split(':')
@@ -172,6 +197,7 @@ module SwashbuckleIntegration =
         schemaGeneratorOptions.SchemaFilters.Add(NoReadOnlyPropertiesFilter())
         schemaGeneratorOptions.SchemaFilters.Add(OptionsAsNullableValuesFilter())
         schemaGeneratorOptions.SchemaFilters.Add(RequiredIfNotNullableFilter())
+        schemaGeneratorOptions.SchemaFilters.Add(FieldlessUnionsToEnumsFilter())
         let dataContractResolver = JsonSerializerDataContractResolver(serializerOptions)
         let schemaRepo = SchemaRepository()
         let schemaGenerator = SchemaGenerator(schemaGeneratorOptions, dataContractResolver)
