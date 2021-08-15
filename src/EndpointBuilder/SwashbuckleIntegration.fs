@@ -165,7 +165,7 @@ module SwashbuckleIntegration =
     let generateOpenApiModel serializerOptions (endpoints : Endpoints list) =
         let document = OpenApiDocument()
         document.Info <- OpenApiInfo(Version = "1.0.0", Title = "Swagger Petstore (Simple)")
-        document.Servers <- ResizeArray([ OpenApiServer(Url = "http://localhost:5000") ])
+        document.Servers <- ResizeArray([ OpenApiServer(Url = "https://localhost:5001") ])
         document.Paths <- OpenApiPaths()
 
         let schemaGeneratorOptions = SchemaGeneratorOptions()
