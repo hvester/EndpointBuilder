@@ -112,6 +112,26 @@ module SwashbuckleIntegration =
                 for prop in schema.Properties do
                     prop.Value.ReadOnly <- false
 
+
+    type OptionPropertyFilter() =
+
+        let getActualSchema (schemaRepository : SchemaRepository) (schema : OpenApiSchema) =
+            if isNull schema.Reference then
+                schema
+            else
+                schemaRepository.Schemas.[schema.Reference.Id]
+
+        interface ISchemaFilter with
+            member _.Apply(schema, context) =
+                for KeyValue(propName, propSchema) in schema.Properties do
+                    let actualPropSchema = getActualSchema context.SchemaRepository propSchema
+                    // TODO: Figure out a better way to recognize options
+                    if actualPropSchema.Properties.ContainsKey "value" then
+                        schema.Properties.[propName] <- actualPropSchema.Properties.["value"]
+                    else
+                        schema.Required.Add(propName) |> ignore
+
+
     let generateOpenApiModel serializerOptions (endpoints : Endpoints list) =
         let document = OpenApiDocument()
         document.Info <- OpenApiInfo(Version = "1.0.0", Title = "Swagger Petstore (Simple)")
@@ -120,6 +140,7 @@ module SwashbuckleIntegration =
 
         let schemaGeneratorOptions = SchemaGeneratorOptions()
         schemaGeneratorOptions.SchemaFilters.Add(ReadOnlyFixFilter())
+        schemaGeneratorOptions.SchemaFilters.Add(OptionPropertyFilter())
         let dataContractResolver = JsonSerializerDataContractResolver(serializerOptions)
         let schemaRepo = SchemaRepository()
         let schemaGenerator = SchemaGenerator(schemaGeneratorOptions, dataContractResolver)
