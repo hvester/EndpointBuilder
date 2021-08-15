@@ -152,6 +152,16 @@ module SwashbuckleIntegration =
                         schema.Required.Add(propName) |> ignore
 
 
+    let private formatPath path =
+        let matchEvaluator = MatchEvaluator(fun m ->
+            let parts = m.Value.Split(':')
+            if parts.Length < 2 then
+                m.Value
+            else
+                parts.[0] + "}")
+        pathParameterRegex.Replace(path, matchEvaluator) 
+
+
     let generateOpenApiModel serializerOptions (endpoints : Endpoints list) =
         let document = OpenApiDocument()
         document.Info <- OpenApiInfo(Version = "1.0.0", Title = "Swagger Petstore (Simple)")
@@ -172,7 +182,7 @@ module SwashbuckleIntegration =
             httpVerbOpt |> Option.map (fun httpVerb -> (path, httpVerb, handler)))
         |> Seq.groupBy (fun (path, _, _) -> path)
         |> Seq.iter (fun (path, handlerGroup) ->
-            let formattedPath = NSwagIntegration.formatPath path
+            let formattedPath = formatPath path
             let pathItem =
                 handlerGroup
                 |> Seq.map (fun (_, httpVerb, handler) -> (httpVerb, handler))
