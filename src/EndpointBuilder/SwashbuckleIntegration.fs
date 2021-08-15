@@ -106,6 +106,12 @@ module SwashbuckleIntegration =
         OpenApiPathItem(Operations=operations)
 
 
+    type ReadOnlyFixFilter() =
+        interface ISchemaFilter with
+            member _.Apply(schema, _) =
+                for prop in schema.Properties do
+                    prop.Value.ReadOnly <- false
+
     let generateOpenApiModel serializerOptions (endpoints : Endpoints list) =
         let document = OpenApiDocument()
         document.Info <- OpenApiInfo(Version = "1.0.0", Title = "Swagger Petstore (Simple)")
@@ -113,6 +119,7 @@ module SwashbuckleIntegration =
         document.Paths <- OpenApiPaths()
 
         let schemaGeneratorOptions = SchemaGeneratorOptions()
+        schemaGeneratorOptions.SchemaFilters.Add(ReadOnlyFixFilter())
         let dataContractResolver = JsonSerializerDataContractResolver(serializerOptions)
         let schemaRepo = SchemaRepository()
         let schemaGenerator = SchemaGenerator(schemaGeneratorOptions, dataContractResolver)
@@ -130,15 +137,7 @@ module SwashbuckleIntegration =
                 |> generateOpenApiPathItem generateSchema
             document.Paths.[formattedPath] <- pathItem)
 
-        document.Components <- OpenApiComponents()
-        document.Components.Schemas <- schemaRepo.Schemas
-
-        // Swashbuckle generates all properties of F# records as "readonly", i.e. not present in
-        // request bodies. This is a workaround to reset them to be not "readonly".
-        for schema in document.Components.Schemas.Values do
-            for prop in schema.Properties do
-                prop.Value.ReadOnly <- false
-
+        document.Components <- OpenApiComponents(Schemas = schemaRepo.Schemas)
         document
 
 
