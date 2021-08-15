@@ -2,6 +2,7 @@ namespace EndpointBuilder
 
 open System
 open System.IO
+open System.Reflection
 open Microsoft.OpenApi.Models
 open Microsoft.OpenApi.Writers
 open Swashbuckle.AspNetCore.SwaggerGen
@@ -106,29 +107,48 @@ module SwashbuckleIntegration =
         OpenApiPathItem(Operations=operations)
 
 
-    type ReadOnlyFixFilter() =
+    type NoReadOnlyPropertiesFilter() =
         interface ISchemaFilter with
             member _.Apply(schema, _) =
                 for prop in schema.Properties do
                     prop.Value.ReadOnly <- false
 
 
-    type OptionPropertyFilter() =
+    let isOptionType (ty : Type) =
+        ty.GetTypeInfo().IsGenericType && ty.GetGenericTypeDefinition() = typedefof<option<_>>
 
-        let getActualSchema (schemaRepository : SchemaRepository) (schema : OpenApiSchema) =
-            if isNull schema.Reference then
-                schema
-            else
-                schemaRepository.Schemas.[schema.Reference.Id]
 
+    // TODO: Copy all properties manually without reflection
+    let copyJsonSchemaProperties (source : OpenApiSchema) (target : OpenApiSchema) =
+        for sourceProp in source.GetType().GetProperties() do
+            if sourceProp.CanWrite then
+                let value = sourceProp.GetValue(source)
+                let targetProp = target.GetType().GetProperty(sourceProp.Name)
+                targetProp.SetValue(target, value)
+
+
+    let getActualSchema (schemaRepository : SchemaRepository) (schema : OpenApiSchema) =
+        if isNull schema.Reference then
+            schema
+        else
+            schemaRepository.Schemas.[schema.Reference.Id]
+
+
+    type OptionsAsNullableValuesFilter() =
+        interface ISchemaFilter with
+            member _.Apply(schema, context) =
+                if isOptionType context.Type then
+                    let valueSchema = Seq.head schema.Properties.Values
+                    copyJsonSchemaProperties valueSchema schema
+                    schema.Nullable <- true
+
+
+    type RequiredIfNotNullableFilter() =
         interface ISchemaFilter with
             member _.Apply(schema, context) =
                 for KeyValue(propName, propSchema) in schema.Properties do
                     let actualPropSchema = getActualSchema context.SchemaRepository propSchema
-                    // TODO: Figure out a better way to recognize options
-                    if actualPropSchema.Properties.ContainsKey "value" then
-                        schema.Properties.[propName] <- actualPropSchema.Properties.["value"]
-                    else
+                    if not actualPropSchema.Nullable then
                         schema.Required.Add(propName) |> ignore
 
 
@@ -139,8 +159,9 @@ module SwashbuckleIntegration =
         document.Paths <- OpenApiPaths()
 
         let schemaGeneratorOptions = SchemaGeneratorOptions()
-        schemaGeneratorOptions.SchemaFilters.Add(ReadOnlyFixFilter())
-        schemaGeneratorOptions.SchemaFilters.Add(OptionPropertyFilter())
+        schemaGeneratorOptions.SchemaFilters.Add(NoReadOnlyPropertiesFilter())
+        schemaGeneratorOptions.SchemaFilters.Add(OptionsAsNullableValuesFilter())
+        schemaGeneratorOptions.SchemaFilters.Add(RequiredIfNotNullableFilter())
         let dataContractResolver = JsonSerializerDataContractResolver(serializerOptions)
         let schemaRepo = SchemaRepository()
         let schemaGenerator = SchemaGenerator(schemaGeneratorOptions, dataContractResolver)
