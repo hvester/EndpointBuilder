@@ -9,7 +9,6 @@
     <Compile Include="Request.fs" />
     <Compile Include="Response.fs" />
     <Compile Include="Routing.fs" />
-    <Compile Include="SchemaConversion.fs" />
     <Compile Include="NSwagIntegration.fs" />
     <Compile Include="SwashbuckleIntegration.fs" />
     <Compile Include="ApplicationBuilderExtensions.fs" />
