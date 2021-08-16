@@ -28,7 +28,7 @@ module Request =
           InputSources : HandlerInputSource list }
 
 
-    type RequestHandler<'T> = (HttpContext -> Task<Result<'T, HandlerInputError list>>) * HandlerInputSource list
+    type RequestHandler<'Response> = (HttpContext -> Task<'Response option>) * HandlerInputSource list
 
 
     let private createConverterResult inputSource str (parseResult : (bool * 'T)) =
@@ -154,15 +154,29 @@ module Request =
                 InputSources = input1.InputSources @ input2.InputSources
             }
 
-        member _.BindReturn(input: HandlerInput<_>, mapping: 'T -> Task<_>) : RequestHandler<_> =
+        member _.BindReturn
+            (
+                input: HandlerInput<'Input>,
+                mapping : 'Input -> Task<Result<'Response, HttpContext -> Task>>
+            )
+            : RequestHandler<'Response> =
+
             let requestHandler ctx =
                 task {
                     match! input.GetInputValue ctx with
-                    | Ok value ->
-                        let! output = mapping value
-                        return Ok output
+                    | Ok inputValue ->
+                        match! mapping inputValue with
+                        | Ok response ->
+                            return Some response
+                        
+                        | Error errorHandler ->
+                            do! errorHandler ctx
+                            return None
+
                     | Error errors ->
-                        return Error errors
+                        ctx.SetStatusCode(400)
+                        let! _ = ctx.WriteStringAsync(sprintf "%A" errors) // TODO: ProblemsDetails maybe?
+                        return None
                 }
 
             (requestHandler, input.InputSources)

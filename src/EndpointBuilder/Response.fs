@@ -1,7 +1,6 @@
 ﻿namespace EndpointBuilder
 
 open System
-open System.Threading.Tasks
 open Microsoft.AspNetCore.Http
 open FSharp.Control.Tasks
 open Giraffe
@@ -27,17 +26,14 @@ module Response =
     let json (requestHandler : RequestHandler<'T>) =
         let requestHandlerFunc, inputSources = requestHandler
         let f (ctx : HttpContext) =
-            task {
+            unitTask {
                 match! requestHandlerFunc ctx with
-                | Ok value ->
-                    let! _ = ctx.WriteJsonAsync(value)
+                | Some response ->
+                    let! _ = ctx.WriteJsonAsync(response)
                     return ()
-                | Error errors ->
-                    ctx.SetStatusCode(400)
-                    let! _ = ctx.WriteStringAsync(sprintf "%A" errors) // TODO: ProblemsDetails maybe?
+                | None ->
                     return ()
             }
-            :> Task
         {
             InputSources = inputSources
             ResponseType = ResponseType.Json typeof<'T>
@@ -48,17 +44,14 @@ module Response =
     let text (requestHandler : RequestHandler<string>) =
         let requestHandlerFunc, inputSources = requestHandler
         let f (ctx : HttpContext) =
-            task {
+            unitTask {
                 match! requestHandlerFunc ctx with
-                | Ok responseString ->
+                | Some responseString ->
                     let! _ = ctx.WriteTextAsync(responseString)
                     return ()
-                | Error errors ->
-                    ctx.SetStatusCode(400)
-                    let! _ = ctx.WriteStringAsync(sprintf "%A" errors) // TODO: ProblemsDetails maybe?
+                | None ->
                     return ()
             }
-            :> Task
         {
             InputSources = inputSources
             ResponseType = ResponseType.Text
