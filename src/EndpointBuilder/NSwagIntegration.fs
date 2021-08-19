@@ -52,19 +52,12 @@ module NSwagIntegration =
             requestBody.Content.Add("application/json", openApiMediaType))
 
 
-    let addResponses generateSchema (operation : OpenApiOperation) responseType =
+    let addResponses generateSchema (operation : OpenApiOperation) endpointHandler =
         let response = OpenApiResponse()
-        operation.Responses.Add("200", response)
-
-        match responseType with
-        | ResponseType.Text ->
-            let openApiMediaType = OpenApiMediaType()
-            response.Content.Add("text/plain", openApiMediaType)
-
-        | ResponseType.Json ty ->
-            let openApiMediaType = OpenApiMediaType()
-            openApiMediaType.Schema <- generateSchema ty
-            response.Content.Add("application/json", openApiMediaType)
+        operation.Responses.Add(string endpointHandler.StatusCode, response)
+        let openApiMediaType = OpenApiMediaType()
+        openApiMediaType.Schema <- generateSchema endpointHandler.ResponseType
+        response.Content.Add(endpointHandler.MimeType, openApiMediaType)
 
 
     let addOperation generateSchema (pathItem : OpenApiPathItem) httpVerb endpointHandler =
@@ -75,7 +68,7 @@ module NSwagIntegration =
 
             addParameters generateSchema operation endpointHandler.InputSources
             addRequestBody generateSchema operation endpointHandler.InputSources
-            addResponses generateSchema operation endpointHandler.ResponseType)
+            addResponses generateSchema operation endpointHandler)
 
 
     let internal formatPath path =

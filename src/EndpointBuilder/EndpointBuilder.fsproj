@@ -6,8 +6,8 @@
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Request.fs" />
     <Compile Include="Response.fs" />
+    <Compile Include="Request.fs" />
     <Compile Include="Routing.fs" />
     <Compile Include="NSwagIntegration.fs" />
     <Compile Include="SwashbuckleIntegration.fs" />

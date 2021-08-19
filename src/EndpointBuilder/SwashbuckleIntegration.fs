@@ -69,30 +69,23 @@ module SwashbuckleIntegration =
         | HttpVerb.TRACE -> OperationType.Trace
 
 
-    let responseTypeToOpenApiMediaType generateSchema responseType =
-        match responseType with
-        | ResponseType.Text ->
-            "text/plain", OpenApiMediaType()
-
-        | ResponseType.Json responseType ->
-            "application/json", OpenApiMediaType(Schema = generateSchema responseType)      
-
-
-    let generateResponses generateSchema responseType =
+    let generateResponses generateSchema handler =
         let responses = OpenApiResponses()
+
+        let openApiMediaType = OpenApiMediaType(Schema = generateSchema handler.ResponseType)
         let response =
             OpenApiResponse(
                 Description = "OK", // TODO: Get from somewhere
-                Content = dict [ responseTypeToOpenApiMediaType generateSchema responseType ])
+                Content = dict [ handler.MimeType, openApiMediaType ])
 
-        responses.Add("200", response)
+        responses.Add(string handler.StatusCode, response)
         responses
 
 
     let generateOperation generateSchema handler =
         let parameters = generateParameters generateSchema handler.InputSources
         let requestBody = generateRequestBody generateSchema handler.InputSources
-        let responses = generateResponses generateSchema handler.ResponseType 
+        let responses = generateResponses generateSchema handler
         OpenApiOperation(
             Description = "Description test",
             Parameters = ResizeArray(parameters),

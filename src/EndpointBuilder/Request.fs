@@ -5,6 +5,8 @@ open System.Threading.Tasks
 open Microsoft.AspNetCore.Http
 open FSharp.Control.Tasks
 open Giraffe
+open MimeTypes
+open StatusCodeTypes
 
 [<AutoOpen>]
 module Request =
@@ -28,7 +30,14 @@ module Request =
           InputSources : HandlerInputSource list }
 
 
-    type RequestHandler<'Response> = (HttpContext -> Task<'Response option>) * HandlerInputSource list
+    type EndpointHandler =
+        {
+            InputSources : HandlerInputSource list
+            StatusCode : int
+            MimeType : string
+            ResponseType : Type
+            RequestDelegate : RequestDelegate
+        }
 
 
     let private createConverterResult inputSource str (parseResult : (bool * 'T)) =
@@ -137,6 +146,16 @@ module Request =
             InputSources = []
         }
 
+      
+    let private getStatusCode (ty : Type) =
+        let attribute = ty.GetCustomAttributes(typeof<StatusCodeAttribute>, true).[0]
+        (attribute :?> StatusCodeAttribute).StatusCode
+
+
+    let private getMimeType (ty : Type) =
+        let attribute = ty.GetCustomAttributes(typeof<MimeTypeAttribute>, true).[0]
+        (attribute :?> MimeTypeAttribute).MimeType
+
 
     type RequestHandlerBuilder() =
 
@@ -157,29 +176,29 @@ module Request =
         member _.BindReturn
             (
                 input: HandlerInput<'Input>,
-                mapping : 'Input -> Task<Result<'Response, HttpContext -> Task>>
+                mapping : 'Input -> Task<ResponseHandler<'Response, 'StatusCode, 'MimeType>>
             )
-            : RequestHandler<'Response> =
+            : EndpointHandler =
 
-            let requestHandler ctx =
-                task {
+            let handler ctx =
+                unitTask {
                     match! input.GetInputValue ctx with
                     | Ok inputValue ->
-                        match! mapping inputValue with
-                        | Ok response ->
-                            return Some response
-                        
-                        | Error errorHandler ->
-                            do! errorHandler ctx
-                            return None
+                        let! ResponseHandler responseHandler = mapping inputValue
+                        do! responseHandler ctx
 
                     | Error errors ->
                         ctx.SetStatusCode(400)
                         let! _ = ctx.WriteStringAsync(sprintf "%A" errors) // TODO: ProblemsDetails maybe?
-                        return None
+                        return ()
                 }
-
-            (requestHandler, input.InputSources)
+            {
+                InputSources = input.InputSources
+                StatusCode = getStatusCode typeof<'StatusCode>
+                MimeType = getMimeType typeof<'MimeType>
+                ResponseType = typeof<'Response>
+                RequestDelegate = new RequestDelegate(handler)
+            }
 
 
     let handler = RequestHandlerBuilder()
