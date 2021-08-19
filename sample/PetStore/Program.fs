@@ -1,4 +1,4 @@
-namespace SampleApp
+namespace PetStore
 
 open System
 open System.Collections.Generic

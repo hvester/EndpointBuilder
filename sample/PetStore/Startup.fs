@@ -1,4 +1,4 @@
-namespace SampleApp
+namespace PetStore
 
 open System.Text.Json
 open System.Text.Json.Serialization
@@ -27,6 +27,7 @@ type Startup() =
     member _.ConfigureServices(services: IServiceCollection) =
         services.AddGiraffe() |> ignore
         services.AddSingleton<Json.ISerializer>(SystemTextJson.Serializer(options)) |> ignore
+        services.AddSingleton<PetRepo>() |> ignore
 
     // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
     member _.Configure(app: IApplicationBuilder, env: IWebHostEnvironment) =
