@@ -33,23 +33,12 @@ type EndpointRouteBuilderExtensions() =
 
     [<Extension>]
     static member MapSwaggerEndpoint(builder : IEndpointRouteBuilder, serializerOptions, endpoints) =
-        (*
         let responseBytes = SwashbuckleIntegration.generateSwaggerJsonBytes serializerOptions endpoints
 
         let getSwaggerJson (ctx : HttpContext) =
             unitTask {
                 ctx.SetContentType "application/json"
                 do! ctx.Response.Body.WriteAsync(responseBytes, 0, responseBytes.Length)
-            }
-        *)
-
-        let swaggerJson = NSwagIntegration.generateSwaggerJson serializerOptions endpoints
-
-        let getSwaggerJson (ctx : HttpContext) =
-            unitTask {
-                ctx.SetContentType "application/json"
-                let! _ = ctx.WriteStringAsync(swaggerJson)
-                return ()
             }
 
         builder.MapGet("swagger.json", new RequestDelegate(getSwaggerJson)) |> ignore

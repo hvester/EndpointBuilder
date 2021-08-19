@@ -9,7 +9,6 @@
     <Compile Include="Response.fs" />
     <Compile Include="Request.fs" />
     <Compile Include="Routing.fs" />
-    <Compile Include="NSwagIntegration.fs" />
     <Compile Include="SwashbuckleIntegration.fs" />
     <Compile Include="ApplicationBuilderExtensions.fs" />
   </ItemGroup>
@@ -17,9 +16,6 @@
     <PackageReference Include="Giraffe" Version="5.0.0" />
     <PackageReference Include="Microsoft.OpenApi" Version="1.2.3" />
     <PackageReference Include="Ply" Version="0.3.1" />
-    <PackageReference Include="NJsonSchema" Version="10.5.2" />
-    <PackageReference Include="FSharp.Data.JsonSchema" Version="1.0.0" />
     <PackageReference Include="Swashbuckle.AspNetCore.SwaggerGen" Version="6.1.5" />
-    <PackageReference Include="NSwag.Core" Version="13.13.2" />
   </ItemGroup>
 </Project>
