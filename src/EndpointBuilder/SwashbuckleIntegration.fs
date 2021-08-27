@@ -69,25 +69,30 @@ module SwashbuckleIntegration =
         | HttpVerb.TRACE -> OperationType.Trace
 
 
-    let generateResponses generateSchema handler =
-        let responses = OpenApiResponses()
+    let generateResponses generateSchema (responses : Map<int, ResponseBodyMetadata list>) =
+        let openApiResponses = OpenApiResponses()
+        
+        for KeyValue(statusCode, responseBodies) in responses do
+            let response =
+                OpenApiResponse(
+                    Content = dict [
+                        for requestBodyMetadata in responseBodies do
+                            let schema = generateSchema requestBodyMetadata.ResponseType
+                            (requestBodyMetadata.MimeType, OpenApiMediaType(Schema = schema))
+                    ])
 
-        let openApiMediaType = OpenApiMediaType(Schema = generateSchema handler.ResponseType)
-        let response =
-            OpenApiResponse(
-                Description = "OK", // TODO: Get from somewhere
-                Content = dict [ handler.MimeType, openApiMediaType ])
+            openApiResponses.Add(string statusCode, response)
 
-        responses.Add(string handler.StatusCode, response)
-        responses
+        openApiResponses
 
 
     let generateOperation generateSchema handler =
         let parameters = generateParameters generateSchema handler.InputSources
         let requestBody = generateRequestBody generateSchema handler.InputSources
-        let responses = generateResponses generateSchema handler
+        let responses = generateResponses generateSchema handler.Responses
         OpenApiOperation(
-            Description = "Description test",
+            Summary = Option.toObj handler.Summary,
+            Description = Option.toObj handler.Description,
             Parameters = ResizeArray(parameters),
             RequestBody = Option.toObj requestBody,
             Responses = responses)

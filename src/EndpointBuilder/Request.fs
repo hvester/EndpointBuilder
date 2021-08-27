@@ -26,17 +26,26 @@ module Request =
 
 
     type HandlerInput<'T> =
-        { GetInputValue : HttpContext -> Task<Result<'T, HandlerInputError list>>
-          InputSources : HandlerInputSource list }
+        {
+            GetInputValue : HttpContext -> Task<Result<'T, HandlerInputError list>>
+            InputSources : HandlerInputSource list
+        }
+
+
+    type ResponseBodyMetadata =
+        {
+            MimeType : string
+            ResponseType : Type
+        }
 
 
     type EndpointHandler =
         {
             InputSources : HandlerInputSource list
-            StatusCode : int
-            MimeType : string
-            ResponseType : Type
-            RequestDelegate : RequestDelegate
+            Responses : Map<int, ResponseBodyMetadata list>
+            HttpHandler : HttpHandler
+            Summary : string option
+            Description : string option
         }
 
 
@@ -152,9 +161,25 @@ module Request =
         (attribute :?> StatusCodeAttribute).StatusCode
 
 
-    let private getMimeType (ty : Type) =
-        let attribute = ty.GetCustomAttributes(typeof<MimeTypeAttribute>, true).[0]
-        (attribute :?> MimeTypeAttribute).MimeType
+    let private tryGetMimeType (ty : Type) =
+        match Array.tryHead (ty.GetCustomAttributes(typeof<MimeTypeAttribute>, true)) with
+        | Some attribute -> Some (attribute :?> MimeTypeAttribute).MimeType
+        | None -> None
+
+
+    let private createPrimaryResponse<'Response, 'StatusCode, 'MimeType> () =
+        let responseMetadatas =
+            match tryGetMimeType typeof<'MimeType> with
+            | Some mimeType when typeof<'Response> <> typeof<unit> ->
+                [
+                    {
+                        MimeType = mimeType
+                        ResponseType = typeof<'Response>
+                    }
+                ]
+            | _ ->
+                []
+        Map.ofList [ (getStatusCode typeof<'StatusCode>, responseMetadatas) ]
 
 
     type RequestHandlerBuilder() =
@@ -180,25 +205,29 @@ module Request =
             )
             : EndpointHandler =
 
-            let handler ctx =
-                unitTask {
-                    match! input.GetInputValue ctx with
-                    | Ok inputValue ->
-                        let! ResponseHandler responseHandler = mapping inputValue
-                        do! responseHandler ctx
+            let handler : HttpHandler =
+                fun (next : HttpFunc) (ctx : HttpContext) ->
+                    task {
+                        match! input.GetInputValue ctx with
+                        | Ok inputValue ->
+                            let! ResponseHandler responseHandler = mapping inputValue
+                            return! responseHandler next ctx
 
-                    | Error errors ->
-                        ctx.SetStatusCode(400)
-                        let! _ = ctx.WriteStringAsync(sprintf "%A" errors) // TODO: ProblemsDetails maybe?
-                        return ()
-                }
+                        | Error errors ->
+                            ctx.SetStatusCode(400)
+                            return! ctx.WriteStringAsync(sprintf "%A" errors) // TODO: ProblemsDetails maybe?
+                    }
             {
                 InputSources = input.InputSources
-                StatusCode = getStatusCode typeof<'StatusCode>
-                MimeType = getMimeType typeof<'MimeType>
-                ResponseType = typeof<'Response>
-                RequestDelegate = new RequestDelegate(handler)
+                Responses = createPrimaryResponse<'Response, 'StatusCode, 'MimeType> ()
+                HttpHandler = handler
+                Summary = None
+                Description = None
             }
 
 
     let handler = RequestHandlerBuilder()
+
+
+    let withSummary summary handler = { handler with Summary = Some summary }
+    let withDescription description handler = { handler with Description = Some description}
