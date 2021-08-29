@@ -188,6 +188,26 @@ With `subRoutef` common prefix can be added and a path parameter can be extracte
 
 ### Schema generation
 
+Schema generation is based on `SchemaGenerator` in Swashbuckle.AspNetCore.SwaggerGen with modifications that fix some of the differences to the format that [FSharp.SystemTextJson](https://github.com/Tarmil/FSharp.SystemTextJson) uses with following settings:
+
+```fsharp
+let options = JsonSerializerOptions(PropertyNamingPolicy=JsonNamingPolicy.CamelCase)
+options.Converters.Add(JsonStringEnumConverter())
+options.Converters.Add(
+    JsonFSharpConverter(
+        JsonUnionEncoding.ExternalTag
+        ||| JsonUnionEncoding.NamedFields
+        ||| JsonUnionEncoding.UnwrapFieldlessTags
+        ||| JsonUnionEncoding.UnwrapOption))
+```
+
+Implemented modifications to schema generation:
+- F# options are flattened to nullable values
+- Properties are required if they are not F# options/nullable
+- Fieldless discriminated unions are represented as enums. Other discriminated unions are not supported.
+
 ### Setting up swagger.json generation and SwaggerUI
+
+
 
 
