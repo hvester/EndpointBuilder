@@ -168,13 +168,23 @@ routef "/test/{name:%s}" (fun nameFromPath ->
     })
 ```
 
-Format identifier can be placed as that last constraint in the curly braces. It is replaced with corresponding ASP.NET Core route constraint. Currently only two format identifiers (`%s´and `%i`) are supported and they are replaced as follows:
+Format identifier can be placed as that last constraint in the curly braces. It is replaced with corresponding ASP.NET Core route constraint. Currently only two format identifiers (`%s` and `%i`) are supported and they are replaced as follows:
 ``` 
 "{foo:%s}" -> "{foo}"
 "{foo:%i}" -> "{foo:int}
 ```
 
 There are also functions like `routef` that specify HTTP verb: `getf`, `postf`, `putf`, etc.
+
+With `subRoute` a common prefix can be added to a set of endpoints:
+```fsharp
+subRoute "/api" [
+    get  "/foo" getFooHandler
+    post "/foo" postFooHandler
+]
+````
+
+With `subRoutef` common prefix can be added and a path parameter can be extracted from the prefix.
 
 ### Schema generation
 
