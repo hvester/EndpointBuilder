@@ -208,6 +208,28 @@ Implemented modifications to schema generation:
 
 ### Setting up swagger.json generation and SwaggerUI
 
+EndpointBuilder and SwaggerUI are configured as follows:
 
+```fsharp
+type Startup() =
 
+    let options = JsonSerializerOptions(PropertyNamingPolicy=JsonNamingPolicy.CamelCase)
+    do
+        options.Converters.Add(JsonStringEnumConverter())
+        options.Converters.Add(
+            JsonFSharpConverter(
+                JsonUnionEncoding.ExternalTag
+                ||| JsonUnionEncoding.NamedFields
+                ||| JsonUnionEncoding.UnwrapFieldlessTags
+                ||| JsonUnionEncoding.UnwrapOption))
 
+    member _.ConfigureServices(services: IServiceCollection) =
+        services.AddGiraffe() |> ignore
+        services.AddSingleton<Json.ISerializer>(SystemTextJson.Serializer(options)) |> ignore
+
+    member _.Configure(app: IApplicationBuilder, env: IWebHostEnvironment) =
+        app
+            .UseRouting()
+            .UseSwaggerUI(fun c -> c.SwaggerEndpoint("/swagger.json", "My API V1"))
+            .UseEndpointBuilder(options, App.endpoints) |> ignore
+```
