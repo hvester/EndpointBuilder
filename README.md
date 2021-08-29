@@ -1,6 +1,6 @@
 # EndpointBuilder
 
-EndpointBuilder is an experimental project exploring ways to add [OpenAPI](https://swagger.io/docs/specification/about/) generation support for a programming model like [Giraffe Endpoint Routing](https://github.com/giraffe-fsharp/Giraffe/blob/master/DOCUMENTATION.md#endpoint-routing). This library (in its current state) provides an alternative for Endpoint Routing that is incompatible with it but integrates with rest of Giraffe.
+EndpointBuilder is an experimental project exploring ways to add [OpenAPI](https://swagger.io/docs/specification/about/) generation support for a programming model like [Giraffe Endpoint Routing](https://github.com/giraffe-fsharp/Giraffe/blob/master/DOCUMENTATION.md#endpoint-routing). This library (in its current state) provides an alternative for Giraffe Endpoint Routing that is incompatible with it but integrates with rest of Giraffe.
 
 Design goals of the project:
 - Support OpenAPI generation with minimal effort in a way that both the functionality and corresponding documentation are defined at the same time
@@ -63,7 +63,7 @@ The concepts are explained in more detail below.
 
 ### Handler inputs
 
-Handler inputs are building blocks for extracting data from HTTP request that the endpoint requires, such as query parameters, path parameters or request body. They are represented by `HandlerInput` type,which is a record type consisting of a function to get the value from `HttpContext` and metadata what is being extracted. The metadata is represented by a list of `HandlerInputSource`, which is a discriminated union of different "recognized" input sources.
+Handler inputs are building blocks for extracting data from the HTTP request that the endpoint requires, such as query parameters, path parameters or request body. They are represented by `HandlerInput` type, which is a record type consisting of a function to get the value from `HttpContext` and metadata what is being extracted. The metadata is represented by a list of `HandlerInputSource`, which is a discriminated union of different "recognized" input sources.
 
 ```fsharp
 type HandlerInput<'T> =
@@ -73,7 +73,7 @@ type HandlerInput<'T> =
     }
 ```
 
-Following handler inputs are provided for getting data from path parameters, from query or from header. They support `string`, `int`, `float` and `Guid` as type parameters.
+Following handler inputs are provided for getting data from path parameters, from a query string or from headers. They support `string`, `int`, `float` and `Guid` as type parameters.
 
 ```fsharp
 let fromPath<'T> (parameterName : string) : HandlerInput<'T> = ...
@@ -89,9 +89,7 @@ Following can be used to get json from request body and to deserialize it to `'T
 let fromJsonBody<'T> : HandlerInput<'T> = ...
 ```
 
-There are also the handler inputs that are not related to OpenAPI.
-
-To get access to `HttpContext` use
+There are also the handler inputs that are not related to OpenAPI. To get access to `HttpContext` use
 
 ```fsharp
 let getHttpContext : HandlerInput<HttpContext> =
@@ -112,7 +110,7 @@ type ResponseHandler<'Response, 'StatusCode, 'MimeType when 'StatusCode :> Statu
     | ResponseHandler of HttpHandler
 ```
 
-Response handlers can be created by static methods in `Response` class. Method names correspond to HTTP status codes. MIME type is selected based the type of the response. Here are few examples:
+Response handlers can be created by static methods in `Response` class. Method names correspond to HTTP status codes. MIME type is selected based on the type of the response. Here are few examples:
 
 ```fsharp
 static member Ok(response : string) : ResponseHandler<string, OK, TextPlain> = ...
@@ -126,7 +124,7 @@ static member NoContent() : ResponseHandler<unit, NoContent, NoResponseBody> = .
 
 ### `handler` computation expression
 
-`EndpointHandler` is the type that contains the `HttpHandler` responsible for the complete handling of a HTTP request (excluding routing) and metadata about request parameters, responses, etc. `EndpointHandler` is composed from handler inputs, domain logic and possible response handlers using `handler` computation expression. Is is an applicative-style computation expression that binds `HandlerInput`s with `let!`and `and!`. The value returned from the `handler` CE must be of type `Task<ResponseHandler<_,_,_>>`, i.e. the response handler to be used should be returned asynchronously. `handler` then wraps everything into an `EndpointHandler`.
+`EndpointHandler` is the type that contains the `HttpHandler` responsible for the complete handling of a HTTP request (excluding routing) and metadata about request parameters, responses, etc. `EndpointHandler` is composed from handler inputs, domain logic and response handlers using `handler` computation expression, which is an applicative-style computation expression that binds `HandlerInput`s with `let!`and `and!`. The value returned from the `handler` CE must be of type `Task<ResponseHandler<_,_,_>>`, i.e. the response handler to be used should be returned asynchronously. `handler` then wraps everything into an `EndpointHandler`.
 
 Example:
 
@@ -141,7 +139,7 @@ let endpointHandler =
 
 ### Routing
 
-Routing tree is represented with `Endpoints` type, which can be composed using functions in `Routing` module.
+Routing tree is represented with `Endpoints` type, which can be built using functions in `Routing` module.
 
 Single endpoint without HTTP verb defined can be created with `route` function as follows:
 
@@ -149,7 +147,7 @@ Single endpoint without HTTP verb defined can be created with `route` function a
 let endpoint = route "/foo" endpointHandler
 ````
 
-Single endpoint with a HTTP verb can be created with functions corresponding HTTP verb names:
+Single endpoint with a HTTP verb can be created with functions corresponding HTTP verbs:
 ```fsharp
 let get path endpointHandler = ...
 let post path endpointHandler = ...
@@ -157,9 +155,9 @@ let put path endpointHandler = ...
 ...
 ````
 
-`path` should follow the format that is supported by [ASP.NET Core Routing](https://docs.microsoft.com/en-us/aspnet/core/fundamentals/routing?view=aspnetcore-5.0). Path parameters can be extracted using the standard ASP.NET Core route template format, such as `"/hello/{name:alpha}"`, and then creating input handler for the path parameter `fromPath<string> "name"`, but there is a better way...
+`path` argument should follow the format that is supported by [ASP.NET Core Routing](https://docs.microsoft.com/en-us/aspnet/core/fundamentals/routing?view=aspnetcore-5.0). Path parameters can be extracted using the standard ASP.NET Core route template format, such as `"/hello/{name:alpha}"`, and then corrsponding input handler can be created for the path parameter `fromPath<string> "name"`, but there is a better way...
 
-`routef` can be used for defining a route with a path parameter and creating the path parameter at the same time:
+To define a route with a path parameter and a corresponding handler input at once `routef` function can be used:
 ```fsharp
 routef "/test/{name:%s}" (fun nameFromPath ->
     handler {
@@ -168,7 +166,7 @@ routef "/test/{name:%s}" (fun nameFromPath ->
     })
 ```
 
-Format identifier can be placed as that last constraint in the curly braces. It is replaced with corresponding ASP.NET Core route constraint. Currently only two format identifiers (`%s` and `%i`) are supported and they are replaced as follows:
+Format identifier can be placed as that last constraint in the curly braces. It is replaced with corresponding ASP.NET Core route constraint when the endpoint is registered. Currently only two format identifiers (`%s` and `%i`) are supported and they are replaced as follows:
 ``` 
 "{foo:%s}" -> "{foo}"
 "{foo:%i}" -> "{foo:int}
@@ -188,7 +186,7 @@ With `subRoutef` common prefix can be added and a path parameter can be extracte
 
 ### Schema generation
 
-Schema generation is based on `SchemaGenerator` in Swashbuckle.AspNetCore.SwaggerGen with modifications that fix some of the differences to the format that [FSharp.SystemTextJson](https://github.com/Tarmil/FSharp.SystemTextJson) uses with following settings:
+Schema generation is based on `SchemaGenerator` in Swashbuckle.AspNetCore.SwaggerGen with modifications that fix some of the differences to the format that [FSharp.SystemTextJson](https://github.com/Tarmil/FSharp.SystemTextJson) uses with the following settings:
 
 ```fsharp
 let options = JsonSerializerOptions(PropertyNamingPolicy=JsonNamingPolicy.CamelCase)
