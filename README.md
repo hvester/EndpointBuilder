@@ -124,6 +124,20 @@ static member NoContent() : ResponseHandler<unit, NoContent, NoResponseBody> = .
 
 `ErrorResponse` class contains methods for creating response handlers for request errors. It is worth noting that those response handlers are generic with respect to all type parameters. Reason for this is that this way a function can return successful reponse handler from one branch and error response handler from another branch, which results in the return type of the function to be determined by the succesful response handler, i.e. type parameters represent metadata of the successful response.
 
+### `handler` computation expression
+
+`EndpointHandler` is the type that contains the `HttpHandler` responsible for the complete handling of a HTTP request (excluding routing) and metadata about request parameters, responses, etc. `EndpointHandler` is composed from handler inputs, domain logic and possible response handlers using `handler` computation expression. Is is an applicative-style computation expression that binds `HandlerInput`s with `let!`and `and!`. The value returned from the `handler` CE must be of type `Task<ResponseHandler<_,_,_>>`, i.e. the response handler to be used should be returned asynchronously. `handler` then wraps everything into an `EndpointHandler`.
+
+Example:
+
+```fsharp
+let endpointHandler =
+    handler {
+        let! x = fromQuery<int> "x"
+        and! body = fromJsonBody<{| Y : int |}>
+        return Task.FromResult(Response.Ok {| Result = x + body.Y |})
+    }
+```
 
 ### Routing
 
