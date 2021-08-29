@@ -141,6 +141,41 @@ let endpointHandler =
 
 ### Routing
 
+Routing tree is represented with `Endpoints` type, which can be composed using functions in `Routing` module.
+
+Single endpoint without HTTP verb defined can be created with `route` function as follows:
+
+```fsharp
+let endpoint = route "/foo" endpointHandler
+````
+
+Single endpoint with a HTTP verb can be created with functions corresponding HTTP verb names:
+```fsharp
+let get path endpointHandler = ...
+let post path endpointHandler = ...
+let put path endpointHandler = ...
+...
+````
+
+`path` should follow the format that is supported by [ASP.NET Core Routing](https://docs.microsoft.com/en-us/aspnet/core/fundamentals/routing?view=aspnetcore-5.0). Path parameters can be extracted using the standard ASP.NET Core route template format, such as `"/hello/{name:alpha}"`, and then creating input handler for the path parameter `fromPath<string> "name"`, but there is a better way...
+
+`routef` can be used for defining a route with a path parameter and creating the path parameter at the same time:
+```fsharp
+routef "/test/{name:%s}" (fun nameFromPath ->
+    handler {
+        let! name = nameFromPath
+        return Task.FromResult(Response.Ok name)
+    })
+```
+
+Format identifier can be placed as that last constraint in the curly braces. It is replaced with corresponding ASP.NET Core route constraint. Currently only two format identifiers (`%s´and `%i`) are supported and they are replaced as follows:
+``` 
+"{foo:%s}" -> "{foo}"
+"{foo:%i}" -> "{foo:int}
+```
+
+There are also functions like `routef` that specify HTTP verb: `getf`, `postf`, `putf`, etc.
+
 ### Schema generation
 
 ### Setting up swagger.json generation and SwaggerUI
