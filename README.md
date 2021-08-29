@@ -8,7 +8,7 @@ Design goals of the project:
 - Composition of building blocks should be type-safe
 - Avoid "magic"
 
-Note: No 
+Note: This library is **not ready for real world use**. Some features are only partially implemented and most of the functionality is not properly tested! 
 
 ## Example
 
