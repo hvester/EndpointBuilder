@@ -51,6 +51,7 @@ let endpoints = [
 To run the sample application:
  1. Go to folder `sample/PetStore`
  2. Run `dotnet run` or `dotnet watch run`
+ 3. Open `https://localhost:5001/swagger/index.html` in browser
 
 ## Documentation
 
