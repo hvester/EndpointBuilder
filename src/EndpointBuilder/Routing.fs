@@ -92,6 +92,16 @@ module Routing =
         route path (createEndpointHandler (fromPath<'T> variableName))
 
 
+    let getf format createEndpointHandler       = GET [ routef format createEndpointHandler ]
+    let postf format createEndpointHandler      = POST [ routef format createEndpointHandler ]
+    let putf format createEndpointHandler       = PUT [ routef format createEndpointHandler ]
+    let patchf format createEndpointHandler     = PATCH [ routef format createEndpointHandler ]
+    let deletef format createEndpointHandler    = DELETE [ routef format createEndpointHandler ]
+    let headf format createEndpointHandler      = HEAD [ routef format createEndpointHandler ]
+    let optionsf format createEndpointHandler   = OPTIONS [ routef format createEndpointHandler ]
+    let tracef format createEndpointHandler     = TRACE [ routef format createEndpointHandler ]
+
+
     let subRoute path (endpoints : Endpoints list) =
         let updatePath (oldPath, httpVerb, handler) =
             (path + oldPath, httpVerb, handler)
