@@ -182,7 +182,7 @@ module Request =
         Map.ofList [ (getStatusCode typeof<'StatusCode>, responseMetadatas) ]
 
 
-    type RequestHandlerBuilder() =
+    type HandlerBuilder() =
 
         member _.MergeSources(input1 : HandlerInput<_>, input2 : HandlerInput<_>) =
             {
@@ -226,7 +226,7 @@ module Request =
             }
 
 
-    let handler = RequestHandlerBuilder()
+    let handler = HandlerBuilder()
 
 
     let withSummary summary handler = { handler with Summary = Some summary }
