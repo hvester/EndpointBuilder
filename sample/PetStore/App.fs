@@ -1,9 +1,6 @@
 namespace PetStore
 
-open System
-open System.Threading.Tasks
 open FSharp.Control.Tasks
-open Giraffe
 open EndpointBuilder
 
 module App =
@@ -28,8 +25,8 @@ module App =
                     let! pet = fromJsonBody<Pet>
                     and! petRepo = fromServices<PetRepo>
                     return task {
-                        let! _ = petRepo.AddPet pet
-                        return Response.Created()
+                        let! petId = petRepo.AddPet pet
+                        return Response.Created(petId)
                     }
                 }
                 |> withSummary "Add a new pet to the store")
