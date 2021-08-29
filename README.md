@@ -122,7 +122,8 @@ static member Ok(response : 'T) : ResponseHandler<'T, OK, ApplicationJson> = ...
 static member NoContent() : ResponseHandler<unit, NoContent, NoResponseBody> = ...
 ```
 
-### `handler`computation expression
+`ErrorResponse` class contains methods for creating response handlers for request errors. It is worth noting that those response handlers are generic with respect to all type parameters. Reason for this is that this way a function can return successful reponse handler from one branch and error response handler from another branch, which results in the return type of the function to be determined by the succesful response handler, i.e. type parameters represent metadata of the successful response.
+
 
 ### Routing
 
